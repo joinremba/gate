@@ -1,6 +1,6 @@
 {
   "name": "@joinremba/gate",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "API safety layer for TypeScript backends. Validate requests, format responses, prevent duplicates, manage API keys, and protect endpoints from abuse.",
   "type": "module",
   "main": "./src/index.ts",
@@ -46,10 +46,20 @@
       "import": "./src/stores/redis.ts",
       "default": "./src/stores/redis.ts"
     },
+    "./stores/redis-api-keys": {
+      "types": "./src/stores/redis-api-keys.ts",
+      "import": "./src/stores/redis-api-keys.ts",
+      "default": "./src/stores/redis-api-keys.ts"
+    },
     "./stores/postgres": {
       "types": "./src/stores/postgres.ts",
       "import": "./src/stores/postgres.ts",
       "default": "./src/stores/postgres.ts"
+    },
+    "./stores/postgres-api-keys": {
+      "types": "./src/stores/postgres-api-keys.ts",
+      "import": "./src/stores/postgres-api-keys.ts",
+      "default": "./src/stores/postgres-api-keys.ts"
     }
   },
   "files": [

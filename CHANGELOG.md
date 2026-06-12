@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] — 2026-06-12
+## [0.3.0] — 2026-06-12
+
+### Added
+
+- **Hashed API keys** — `createApiKeyValidator(keys, { hashKeys: true })` stores SHA-256 hashes instead of plaintext. New `verify(token)` method for async hash comparison.
+- **DB-backed API key stores** — `PostgresApiKeyStore` and `RedisApiKeyStore` validate keys against a `gate_api_keys` table / Redis hash. Support `setKey()`, `deleteKey()`, and key expiry.
+- **Combined middleware** — `gate.middleware({ auth, rateLimit, idempotency })` runs all checks in one call. Rejects with proper status codes (401, 429). Supports `excludePaths`.
+- **Per-key rate limiting helper** — `keyByApiKey(req)` extracts Bearer token from Authorization header for use as rate limit key.
+- `@joinremba/gate/stores/redis-api-keys` and `@joinremba/gate/stores/postgres-api-keys` sub-module exports.
 
 ### Added
 

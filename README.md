@@ -184,7 +184,86 @@ if (!result.authenticated) throw new AuthenticationError(result.error);
 
 **When to use it:** You have a few static keys for internal services, a shared webhook secret, or scoped tokens for admin tools. Keys are configured at startup and held in memory — no database query per request, zero dependencies.
 
-**When not to use it:** You need key rotation, hashed storage, per-user API keys, expiry/revocation, or rate limiting per key. For those cases, extend with a DB-backed validator (e.g. query Postgres with `SELECT * FROM api_keys WHERE key_hash = $1`).
+**When not to use it:** You need key rotation, hashed storage, per-user API keys, expiry/revocation, or rate limiting per key. For those cases, use the hashed or DB-backed stores below.
+
+#### Hashed API Keys
+
+Store SHA-256 hashes instead of plaintext keys. Protects against memory dumps.
+
+```ts
+const validator = createApiKeyValidator(
+  [{ key: "9418b81169b7...", scopes: ["admin"] }], // pre-computed sha256("sk-live-123")
+  { hashKeys: true }
+);
+
+await validator.verify("sk-live-123");
+// -> { authenticated: true, key: "sk-live-123", scopes: ["admin"] }
+```
+
+#### DB-backed API Key Stores
+
+Validate keys against Postgres or Redis. Keys can be added/removed at runtime.
+
+```ts
+import { PostgresApiKeyStore } from "@joinremba/gate/stores/postgres-api-keys";
+
+const store = new PostgresApiKeyStore(pgClient);
+await store.ensureTable();
+
+// Add a key
+await store.setKey({ key: "sk-live-abc", scopes: ["read"] }, expiresAt);
+
+// Validate
+const result = await store.verify("sk-live-abc");
+
+// Remove
+await store.deleteKey("sk-live-abc");
+```
+
+```ts
+import { RedisApiKeyStore } from "@joinremba/gate/stores/redis-api-keys";
+
+const store = new RedisApiKeyStore(redisClient);
+await store.setKey({ key: "sk-redis-key", scopes: ["admin"] });
+const result = await store.verify("sk-redis-key");
+```
+
+### Combined Middleware
+
+Run auth, rate limiting, and idempotency in a single middleware call:
+
+```ts
+const gate = createGate({
+  apiKeys: [{ key: "sk-admin" }],
+  rateLimit: { windowMs: 60_000, max: 100 },
+});
+
+app.use(
+  gate.middleware({
+    auth: true,
+    requiredScopes: ["write"],
+    rateLimit: true,
+    idempotency: true,
+    excludePaths: ["/health", "/metrics"],
+  })
+);
+```
+
+The middleware returns 401 for invalid/missing keys, 429 when rate limited, and caches idempotent responses automatically.
+
+### Per-key Rate Limiting
+
+Rate-limit by API key instead of IP:
+
+```ts
+import { rateLimit, keyByApiKey } from "@joinremba/gate/rate-limit";
+
+const limiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  keyFn: keyByApiKey,
+});
+```
 
 ### Errors (`@joinremba/gate/errors`)
 
@@ -317,15 +396,13 @@ app.post("/orders", async (req, res, next) => {
 - In-memory idempotency store
 - In-memory rate limiting store
 
-**V1**
+**V1** (current)
 
-- Idempotency middleware
-- Redis idempotency store
-- Postgres idempotency store
-- Rate limiting middleware
+- Redis and Postgres stores for idempotency and rate limiting
 - API key hashing and validation
-- Scopes and permissions middleware
-- Usage tracking hooks
+- DB-backed API key stores (Redis, Postgres)
+- Combined middleware (auth + rate limit + idempotency)
+- Per-key rate limiting helper
 
 **V2**
 

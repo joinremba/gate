@@ -35,6 +35,16 @@ export interface RateLimitOptions {
   keyFn?: (req: Request) => string;
 }
 
+/** Rate-limit by API key (Bearer token from Authorization header). Falls back to IP. */
+export function keyByApiKey(req: Request): string {
+  const auth = req.headers.get("authorization");
+  if (auth) {
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
+    if (token) return `ak:${token.slice(0, 12)}`;
+  }
+  return req.headers.get("x-forwarded-for") ?? "global";
+}
+
 export function rateLimit(options: RateLimitOptions = {}) {
   const windowMs = options.windowMs ?? 60_000;
   const max = options.max ?? 100;

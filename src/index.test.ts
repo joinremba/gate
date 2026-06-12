@@ -114,3 +114,69 @@ describe("api keys", () => {
     expect(result.authenticated).toBe(false);
   });
 });
+
+describe("keyByApiKey", () => {
+  test("uses API key from Authorization header", async () => {
+    const { keyByApiKey } = await import("./rate-limit");
+    const req = new Request("http://localhost", {
+      headers: { Authorization: "Bearer sk-live-abc123" },
+    });
+    const key = keyByApiKey(req);
+    expect(key).toStartWith("ak:sk-live-abc1");
+  });
+
+  test("falls back to IP when no auth header", async () => {
+    const { keyByApiKey } = await import("./rate-limit");
+    const req = new Request("http://localhost");
+    const key = keyByApiKey(req);
+    expect(typeof key).toBe("string");
+  });
+});
+
+describe("middleware", () => {
+  test("passes through when no features enabled", async () => {
+    const gate = createGate();
+    const mw = gate.middleware();
+    const req = new Request("http://localhost/api");
+    let called = false;
+    const res = await mw(req, async () => {
+      called = true;
+      return new Response("ok");
+    });
+    expect(called).toBe(true);
+    expect(res).toBeInstanceOf(Response);
+  });
+
+  test("rejects request when auth fails", async () => {
+    const gate = createGate({ apiKeys: [{ key: "sk-valid" }] });
+    const mw = gate.middleware({ auth: true });
+    const req = new Request("http://localhost/api", {
+      headers: { Authorization: "Bearer sk-wrong" },
+    });
+    const res = await mw(req, async () => new Response("ok"));
+    expect(res!.status).toBe(401);
+    const body = (await res!.json()) as Record<string, unknown>;
+    expect(body.success).toBe(false);
+  });
+
+  test("rejects when rate limit exceeded", async () => {
+    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
+    const mw = gate.middleware({ rateLimit: true });
+    const req = new Request("http://localhost/api");
+    const res = await mw(req, async () => new Response("ok"));
+    expect(res!.status).toBe(429);
+  });
+
+  test("skips excluded paths", async () => {
+    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
+    const mw = gate.middleware({ rateLimit: true, excludePaths: ["/health"] });
+    const req = new Request("http://localhost/health");
+    let called = false;
+    const res = await mw(req, async () => {
+      called = true;
+      return new Response("ok");
+    });
+    expect(called).toBe(true);
+    expect(res!.status).toBe(200);
+  });
+});

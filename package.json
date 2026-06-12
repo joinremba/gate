@@ -10,6 +10,36 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./validate": {
+      "types": "./src/validate.ts",
+      "import": "./src/validate.ts",
+      "default": "./src/validate.ts"
+    },
+    "./respond": {
+      "types": "./src/respond.ts",
+      "import": "./src/respond.ts",
+      "default": "./src/respond.ts"
+    },
+    "./idempotency": {
+      "types": "./src/idempotency.ts",
+      "import": "./src/idempotency.ts",
+      "default": "./src/idempotency.ts"
+    },
+    "./rate-limit": {
+      "types": "./src/rate-limit.ts",
+      "import": "./src/rate-limit.ts",
+      "default": "./src/rate-limit.ts"
+    },
+    "./api-keys": {
+      "types": "./src/api-keys.ts",
+      "import": "./src/api-keys.ts",
+      "default": "./src/api-keys.ts"
+    },
+    "./errors": {
+      "types": "./src/errors.ts",
+      "import": "./src/errors.ts",
+      "default": "./src/errors.ts"
     }
   },
   "files": [

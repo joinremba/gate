@@ -10,10 +10,14 @@ Gate is the API safety layer for TypeScript backends. It validates requests, for
 ## Features
 
 - **Request validation** — Validate body, query, params, and headers with Zod schemas.
-- **Structured responses** — Consistent `{ success, data, error }` response envelope.
-- **Idempotency** — Prevent duplicate writes with idempotency keys.
-- **API key management** — Rotatable, scoped API key authentication.
-- **Rate limiting** — Protect endpoints from abuse with configurable rate limits.
+- **Structured responses** — Consistent `{ success, data, error }` response envelope with `ok()` and `fail()` helpers.
+- **Problem details** — RFC 9457 problem-details-style error format.
+- **Pagination** — Standardised paginated response helper.
+- **Request ID** — Automatic request ID generation and propagation.
+- **Idempotency** — Prevent duplicate writes with idempotency keys. Ships with in-memory store; plug in Redis or Postgres.
+- **Rate limiting** — Protect endpoints from abuse with configurable windows and limits.
+- **API key management** — Rotatable, scoped API key authentication with Bearer token support.
+- **Framework-agnostic** — Use with Express, Hono, Fastify, Elysia, or raw Bun.
 
 ## Installation
 
@@ -24,68 +28,35 @@ bun add @remba/gate
 ## Quick Start
 
 ```ts
-import { createGate } from "@remba/gate";
-
-const gate = createGate();
-
-// Use with your HTTP framework
-app.use(gate.middleware());
-```
-
-## API Reference
-
-### `createGate(options?)`
-
-Factory function that returns a Gate instance. Accepts an optional `GateOptions` object to configure validation, idempotency, API keys, and rate limiting.
-
-**Middleware mode** — Call `gate.middleware()` to obtain a framework-agnostic middleware function that can be plugged into Express, Hono, Elysia, or any Bun-native server.
-
-**Direct usage** — Use the returned `gate.validate()`, `gate.idempotent()`, `gate.authenticate()`, and `gate.limit()` functions directly for per-route control.
-
-```ts
-import { createGate } from "@remba/gate";
+import { createGate, ok } from "@remba/gate";
+import { z } from "zod";
 
 const gate = createGate({
-  apiKeys: ["sk-abc123"],
+  apiKeys: [{ key: "sk-abc123", scopes: ["write"] }],
   rateLimit: { windowMs: 60_000, max: 100 },
+});
+
+app.post("/transfers", gate.middleware(), async (req, res) => {
+  return ok({ message: "Transfer queued" });
 });
 ```
 
-### Request Validation
+## Modules
 
-Validate incoming request body, query string, route params, and headers against Zod schemas. Returns a structured result.
-
-```ts
-import { z } from "zod";
-
-const bodySchema = z.object({ name: z.string() });
-const result = gate.validate({ body: bodySchema }, request);
-```
-
-### Structured Response Envelope
-
-All responses follow a consistent envelope:
+Gate is organised into sub-modules that can be imported individually:
 
 ```ts
-{ success: true, data: { ... } }
-{ success: false, error: { message: "...", code: "..." } }
+import { validateRequest } from "@remba/gate/validate";
+import { ok, fail, paginated, problem } from "@remba/gate/respond";
+import { idempotency, InMemoryStore } from "@remba/gate/idempotency";
+import { rateLimit, InMemoryRateLimitStore } from "@remba/gate/rate-limit";
+import { createApiKeyValidator } from "@remba/gate/api-keys";
+import { GateError, ValidationError, AuthenticationError } from "@remba/gate/errors";
 ```
 
-Use `gate.success(data)` and `gate.error(message, code?)` to build responses.
+### `createGate(options?)`
 
-### Idempotency Key Interface
-
-Idempotency keys prevent duplicate processing of the same request. Send an `Idempotency-Key` header on POST/PUT/PATCH requests. Gate will cache the response and return it for subsequent requests with the same key.
-
-```ts
-const gate = createGate({ idempotency: { store: new Map(), ttl: 86_400_000 } });
-```
-
-A custom store can be provided (e.g. Redis-backed) by implementing the `IdempotencyStore` interface.
-
-### API Key Management
-
-Gate supports API key authentication with optional scoped permissions. Provide keys to the factory or validate them at runtime.
+Factory function that returns a `Gate` instance with all modules pre-configured.
 
 ```ts
 const gate = createGate({
@@ -93,119 +64,207 @@ const gate = createGate({
     { key: "sk-read-only", scopes: ["read"] },
     { key: "sk-admin", scopes: ["read", "write", "delete"] },
   ],
-});
-
-// Per-route check
-gate.authenticate(request, { requiredScopes: ["write"] });
-```
-
-### Rate Limiting
-
-Configure rate limits per endpoint or globally. Supports sliding window and fixed window strategies.
-
-```ts
-const gate = createGate({
-  rateLimit: { windowMs: 60_000, max: 100, strategy: "sliding" },
+  rateLimit: { windowMs: 60_000, max: 50 },
+  idempotency: { keyHeader: "Idempotency-Key", ttl: 86_400_000 },
 });
 ```
 
-A custom store (in-memory, Redis, etc.) can be provided for distributed deployments.
+### Validate (`@remba/gate/validate`)
 
-### TypeScript Types
-
-The following types are exported:
-
-- `GateOptions` — Configuration object for `createGate`
-- `ValidationTarget` — `"body" | "query" | "params" | "headers"`
-- `ValidationSchema` — Zod schema or record of Zod schemas
-- `StructuredResponse<T>` — `{ success: true, data: T } | { success: false, error: ErrorPayload }`
-- `ErrorPayload` — `{ message: string; code?: string }`
-- `IdempotencyOptions` — Idempotency configuration
-- `IdempotencyStore` — Interface for custom idempotency backing stores
-- `ApiKeyConfig` — API key with optional scopes
-- `RateLimitOptions` — Rate limit configuration
-- `RateLimitStrategy` — `"fixed" | "sliding"`
-- `GateInstance` — Return type of `createGate`
-
-## Examples
-
-### Basic request validation with Zod
+Validate request body, query, params, and headers against Zod schemas.
 
 ```ts
-import { createGate } from "@remba/gate";
+import { validateRequest } from "@remba/gate/validate";
 import { z } from "zod";
 
-const gate = createGate();
-const userSchema = z.object({ name: z.string().min(1), email: z.string().email() });
-
-Bun.serve({
-  port: 3000,
-  async fetch(req) {
-    const result = gate.validate({ body: userSchema }, req);
-    if (!result.success) {
-      return new Response(JSON.stringify(result), { status: 400 });
-    }
-    return new Response(JSON.stringify(gate.success(result.data)), { status: 201 });
-  },
+const transferSchema = z.object({
+  amount: z.number().positive(),
+  currency: z.enum(["NGN", "USD", "EUR"]),
+  recipient: z.string().min(1),
 });
+
+const result = validateRequest({ body: transferSchema }, { body: req.body });
+
+if (!result.success) {
+  return gate.fail("Validation failed", "VALIDATION_ERROR", result.errors);
+}
 ```
 
-### Structured error responses
+### Respond (`@remba/gate/respond`)
+
+Build consistent API responses.
 
 ```ts
-const gate = createGate();
+import { ok, fail, paginated, problem } from "@remba/gate/respond";
 
 // Success
-gate.success({ id: 1, name: "Alice" });
+ok({ id: 1, name: "Alice" });
 // -> { success: true, data: { id: 1, name: "Alice" } }
 
 // Error
-gate.error("Resource not found", "NOT_FOUND");
+fail("Resource not found", "NOT_FOUND");
 // -> { success: false, error: { message: "Resource not found", code: "NOT_FOUND" } }
-```
 
-### Idempotency for POST endpoints
+// Paginated
+paginated([{ id: 1 }], 25, 1, 10);
+// -> { success: true, data: [...], pagination: { total: 25, page: 1, limit: 10, pages: 3 } }
 
-```ts
-const gate = createGate({ idempotency: { store: new Map(), ttl: 86_400_000 } });
-
-app.post("/orders", gate.idempotent(), async (req) => {
-  const order = await createOrder(req.body);
-  return gate.success(order);
-});
-
-// Client sends Idempotency-Key: abc-123 in the header.
-// Subsequent requests with the same key return the cached response.
-```
-
-### API key authentication
-
-```ts
-const gate = createGate({
-  apiKeys: [
-    { key: "sk-1a2b3c", scopes: ["read"] },
-    { key: "sk-admin", scopes: ["read", "write"] },
-  ],
-});
-
-app.get("/users", gate.authenticate({ requiredScopes: ["read"] }), async (req) => {
-  return gate.success(await listUsers());
+// Problem details (RFC 9457)
+problem({
+  type: "https://errors.remba.com/rate-limit",
+  title: "Rate Limit Exceeded",
+  status: 429,
+  detail: "Too many requests, please retry later",
 });
 ```
 
-### Rate limiting configuration
+### Idempotency (`@remba/gate/idempotency`)
+
+Prevent duplicate processing of the same request using idempotency keys.
 
 ```ts
-const gate = createGate({
-  rateLimit: {
-    windowMs: 60_000,
-    max: 30,
-    strategy: "sliding",
+import { idempotency, InMemoryStore } from "@remba/gate/idempotency";
+
+const guard = idempotency({
+  store: new InMemoryStore(),
+  keyHeader: "Idempotency-Key",
+  ttl: 86_400_000, // 24 hours
+});
+
+// Check if a request has been processed
+const existing = await guard.getResponse(idempotencyKey);
+if (existing) return existing;
+
+// Store the response after processing
+await guard.setResponse(idempotencyKey, response);
+```
+
+Bring your own store by implementing the `IdempotencyStore` interface (Redis, Postgres, etc.).
+
+### Rate Limiting (`@remba/gate/rate-limit`)
+
+Protect endpoints from abuse.
+
+```ts
+import { rateLimit, InMemoryRateLimitStore } from "@remba/gate/rate-limit";
+
+const limiter = rateLimit({
+  windowMs: 60_000, // 1 minute
+  max: 30,
+  keyFn: (req) => req.headers.get("x-forwarded-for") ?? "global",
+});
+
+const { allowed, remaining } = await limiter.check(req);
+if (!allowed) throw new RateLimitError();
+```
+
+Customise the key function to rate-limit by user ID, API key, or IP.
+
+### API Keys (`@remba/gate/api-keys`)
+
+Validate API keys with optional scoped permissions.
+
+```ts
+import { createApiKeyValidator } from "@remba/gate/api-keys";
+
+const keys = createApiKeyValidator([
+  { key: "sk-read-only", scopes: ["read"] },
+  { key: "sk-admin", scopes: ["read", "write", "delete"] },
+]);
+
+// Direct validation
+keys.validate("sk-read-only");
+// -> { authenticated: true, key: "sk-read-only", scopes: ["read"] }
+
+// Request authentication middleware
+const auth = keys.authenticate({ requiredScopes: ["write"], header: "Authorization" });
+const result = auth(request);
+if (!result.authenticated) throw new AuthenticationError(result.error);
+```
+
+### Errors (`@remba/gate/errors`)
+
+Standard error types for consistent error handling.
+
+| Error                 | Status | Code                   | When                       |
+| --------------------- | ------ | ---------------------- | -------------------------- |
+| `GateError`           | 500    | `GATE_ERROR`           | Base error type            |
+| `ValidationError`     | 400    | `VALIDATION_ERROR`     | Invalid request input      |
+| `AuthenticationError` | 401    | `AUTHENTICATION_ERROR` | Missing or invalid API key |
+| `RateLimitError`      | 429    | `RATE_LIMIT_ERROR`     | Rate limit exceeded        |
+| `IdempotencyError`    | 409    | `IDEMPOTENCY_ERROR`    | Idempotency key conflict   |
+
+## TypeScript Types
+
+```ts
+import type {
+  Gate,
+  GateOptions,
+  Middleware,
+  ValidationSchemas,
+  ValidationResult,
+  SuccessResponse,
+  ErrorResponse,
+  PaginatedResponse,
+  ProblemDetails,
+  IdempotencyStore,
+  IdempotencyOptions,
+  RateLimitStore,
+  RateLimitOptions,
+  RateLimitStrategy,
+  ApiKeyEntry,
+  AuthenticateOptions,
+  AuthenticateResult,
+} from "@remba/gate";
+```
+
+## Examples
+
+### Express middleware
+
+```ts
+import express from "express";
+import { createGate, ok } from "@remba/gate";
+import { z } from "zod";
+
+const app = express();
+const gate = createGate({ rateLimit: { windowMs: 60_000, max: 30 } });
+
+app.post(
+  "/api/orders",
+  (req, res, next) => {
+    const result = gate.validate(
+      { body: z.object({ productId: z.string(), quantity: z.number() }) },
+      { body: req.body }
+    );
+    if (!result.success) {
+      return res.status(400).json(gate.fail("Validation failed", undefined, result.errors));
+    }
+    req.body = result.data.body;
+    next();
   },
-});
+  async (req, res) => {
+    const order = await createOrder(req.body);
+    res.json(ok(order));
+  }
+);
+```
 
-app.get("/api/data", gate.limit(), async (req) => {
-  return gate.success(await fetchData());
+### Hono middleware
+
+```ts
+import { Hono } from "hono";
+import { createGate, ok } from "@remba/gate";
+
+const app = new Hono();
+const gate = createGate({ apiKeys: [{ key: "sk-admin" }] });
+
+app.use("/api/*", async (c, next) => {
+  const auth = gate.apiKeys.authenticate()(c.req.raw);
+  if (!auth.authenticated) {
+    return c.json(gate.fail("Unauthorized"), 401);
+  }
+  await next();
 });
 ```
 
@@ -214,33 +273,69 @@ app.get("/api/data", gate.limit(), async (req) => {
 ```ts
 const gate = createGate({
   apiKeys: [{ key: "sk-admin", scopes: ["write"] }],
-  idempotency: { store: new Map(), ttl: 86_400_000 },
+  idempotency: { store: new InMemoryStore(), ttl: 86_400_000 },
   rateLimit: { windowMs: 60_000, max: 50 },
 });
 
-app.post(
-  "/orders",
-  gate.authenticate({ requiredScopes: ["write"] }),
-  gate.idempotent(),
-  gate.limit(),
-  async (req) => {
-    const result = gate.validate(
-      { body: z.object({ productId: z.string(), quantity: z.number() }) },
-      req
-    );
-    if (!result.success) {
-      return new Response(JSON.stringify(result), { status: 400 });
-    }
-    const order = await createOrder(result.data);
-    return gate.success(order);
+app.post("/orders", async (req, res, next) => {
+  // Rate limit
+  const rl = await gate.rateLimit.check(req);
+  if (!rl.allowed) return res.status(429).json(gate.fail("Too many requests"));
+
+  // Idempotency
+  const idemKey = req.headers.get(gate.idempotency.keyHeader);
+  if (idemKey) {
+    const cached = await gate.idempotency.getResponse(idemKey);
+    if (cached) return res.json(cached);
   }
-);
+
+  // Validate
+  const result = gate.validate({ body: z.object({ amount: z.number() }) }, { body: req.body });
+  if (!result.success) return res.status(400).json(gate.fail("Validation failed"));
+
+  const response = ok(await processOrder(result.data.body));
+
+  if (idemKey) await gate.idempotency.setResponse(idemKey, response);
+  res.json(response);
+});
 ```
+
+## Roadmap
+
+**MVP** (current)
+
+- Request validation (body, query, params, headers)
+- Standard success/error responses
+- Problem-details error format (RFC 9457)
+- Pagination helper
+- Request ID support
+- Express and Hono middleware examples
+- In-memory idempotency store
+- In-memory rate limiting store
+
+**V1**
+
+- Idempotency middleware
+- Redis idempotency store
+- Postgres idempotency store
+- Rate limiting middleware
+- API key hashing and validation
+- Scopes and permissions middleware
+- Usage tracking hooks
+
+**V2**
+
+- API key dashboard
+- Usage analytics
+- Abuse detection
+- Team API key management
+- Hosted key verification
+- Organisation-level quotas
 
 ## Related Packages
 
-- [@remba/beacon](https://github.com/joinremba/beacon) — Structured logging and telemetry for TypeScript backends.
-- [@remba/catalog](https://github.com/joinremba/catalog) — API catalog and documentation from Zod schemas.
+- [@remba/beacon](https://github.com/joinremba/beacon) — Environment validation, config, secrets, and feature gates.
+- [@remba/catalog](https://github.com/joinremba/catalog) — Production-ready logging and error event layer built on Pino.
 
 ## Contributing
 

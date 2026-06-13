@@ -20,7 +20,7 @@ test("verify with hashKeys true hashes before lookup", async () => {
   const validator = createApiKeyValidator(
     [
       {
-        key: "9418b81169b79003fd8c4481e61b79a762e996a0c172cda188c927714b5ee05b",
+        key: "sk-live-123",
         scopes: ["admin"],
       },
     ],

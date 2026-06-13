@@ -63,7 +63,7 @@ export function validateRequest(
 }
 
 export function validate(schemas: ValidationSchemas) {
-  return (req: Request) => {
+  return async (req: Request) => {
     const url = new URL(req.url);
 
     const searchParams: Record<string, string> = {};
@@ -71,8 +71,15 @@ export function validate(schemas: ValidationSchemas) {
       searchParams[k] = v;
     });
 
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      body = undefined;
+    }
+
     const result = validateRequest(schemas, {
-      body: req.body,
+      body,
       query: searchParams,
       headers: Object.fromEntries(req.headers.entries()),
     });

@@ -39,9 +39,21 @@ export function createApiKeyValidator(keys: ApiKeyEntry[], options: ApiKeyValida
 
   for (const entry of keys) {
     keyMap.set(entry.key, { key: entry.key, scopes: entry.scopes, metadata: entry.metadata });
-    if (hashKeys) {
-      // Pre-compute hashes for lookup
+  }
+
+  let hashCache: Map<
+    string,
+    { key: string; scopes?: string[]; metadata?: Record<string, unknown> }
+  > | null = null;
+
+  async function ensureHashCache() {
+    if (!hashCache) {
+      hashCache = new Map();
+      for (const [, entry] of keyMap) {
+        hashCache.set(await sha256(entry.key), entry);
+      }
     }
+    return hashCache;
   }
 
   return {
@@ -62,8 +74,9 @@ export function createApiKeyValidator(keys: ApiKeyEntry[], options: ApiKeyValida
       if (!hashKeys) {
         return this.validate(providedKey);
       }
+      const cache = await ensureHashCache();
       const keyHash = await sha256(providedKey);
-      const entry = keyMap.get(keyHash);
+      const entry = cache.get(keyHash);
       if (!entry) {
         return { authenticated: false, error: "Invalid API key" };
       }

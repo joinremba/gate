@@ -2,6 +2,7 @@ import { validateRequest } from "./validate";
 import { ok, fail, paginated, problem } from "./respond";
 import { idempotency, InMemoryStore } from "./idempotency";
 import { rateLimit, InMemoryRateLimitStore, keyByApiKey } from "./rate-limit";
+import type { RateLimitStore } from "./rate-limit";
 import { createApiKeyValidator } from "./api-keys";
 import type { ApiKeyEntry, AuthenticateResult } from "./api-keys";
 import type { IdempotencyStore } from "./idempotency";
@@ -79,7 +80,7 @@ export interface GateOptions {
   rateLimit?: {
     windowMs?: number;
     max?: number;
-    store?: IdempotencyStore;
+    store?: RateLimitStore;
     keyFn?: (req: Request) => string;
   };
 }
@@ -114,6 +115,8 @@ export function createGate(options: GateOptions = {}): Gate {
   const rlInstance = rateLimit({
     windowMs: options.rateLimit?.windowMs,
     max: options.rateLimit?.max,
+    store: options.rateLimit?.store,
+    keyFn: options.rateLimit?.keyFn,
   });
 
   const apiKeyValidator = createApiKeyValidator(options.apiKeys ?? []);

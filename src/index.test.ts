@@ -95,6 +95,16 @@ describe("rate limit", () => {
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(99);
   });
+
+  test("accepts string key directly", async () => {
+    const gate = createGate({
+      rateLimit: { windowMs: 60000, max: 10 },
+    });
+
+    const result = await gate.rateLimit.check("custom:user-42");
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(9);
+  });
 });
 
 describe("api keys", () => {

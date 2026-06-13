@@ -62,8 +62,8 @@ export function rateLimit(options: RateLimitOptions = {}) {
     store,
     keyFn,
 
-    async check(req: Request): Promise<{ allowed: boolean; remaining: number; reset: number }> {
-      const key = keyFn(req);
+    async check(reqOrKey: Request | string): Promise<RateLimitCheckResult> {
+      const key = typeof reqOrKey === "string" ? reqOrKey : keyFn(reqOrKey);
       const { count, reset } = await store.increment(`rl:${key}`, windowMs);
       return {
         allowed: count <= max,
@@ -75,3 +75,9 @@ export function rateLimit(options: RateLimitOptions = {}) {
 }
 
 export type RateLimitInstance = ReturnType<typeof rateLimit>;
+
+export type RateLimitCheckResult = {
+  allowed: boolean;
+  remaining: number;
+  reset: number;
+};

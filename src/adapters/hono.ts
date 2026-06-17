@@ -80,17 +80,12 @@ export function requireIdempotencyKey({
       return c.json(cached, 200);
     }
 
-    const originalJson = c.json.bind(c);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (c.json as any) = (body: unknown, status?: number, headers?: Record<string, string>) => {
-      if (status === undefined || status < 500) {
-        gate.idempotency.setResponse(key, body).catch(() => {});
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return originalJson(body, status as any, headers);
-    };
-
     await next();
+
+    if (c.res.status < 500) {
+      const body = await c.res.clone().json();
+      gate.idempotency.setResponse(key, body).catch(() => {});
+    }
   });
 }
 

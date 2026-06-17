@@ -22,21 +22,15 @@ export function createRateLimiter({
   return createMiddleware(async (c: Context, next: Next) => {
     const identifier = getKey
       ? getKey(c)
-      : (c.get("clientIp") as string | undefined) ??
-        c.req.header("x-forwarded-for") ??
-        "unknown";
+      : ((c.get("clientIp") as string | undefined) ?? c.req.header("x-forwarded-for") ?? "unknown");
 
     const result = await gate.rateLimit.check(`${keyPrefix}:${identifier}`);
 
     if (!result.allowed) {
-      return c.json(
-        { success: false, error: { message, code: "RATE_LIMIT_EXCEEDED" } },
-        429,
-        {
-          "Retry-After": String(Math.ceil((result.reset - Date.now()) / 1000)),
-          "X-RateLimit-Remaining": "0",
-        }
-      );
+      return c.json({ success: false, error: { message, code: "RATE_LIMIT_EXCEEDED" } }, 429, {
+        "Retry-After": String(Math.ceil((result.reset - Date.now()) / 1000)),
+        "X-RateLimit-Remaining": "0",
+      });
     }
 
     c.res.headers.set("X-RateLimit-Remaining", String(result.remaining));
@@ -91,11 +85,7 @@ export function requireIdempotencyKey({
     }
 
     const originalJson = c.json.bind(c);
-    (c.json as any) = (
-      body: unknown,
-      status?: number,
-      headers?: Record<string, string>
-    ) => {
+    (c.json as any) = (body: unknown, status?: number, headers?: Record<string, string>) => {
       if (status === undefined || status < 500) {
         gate.idempotency.setResponse(key, body).catch(() => {});
       }

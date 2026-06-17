@@ -43,10 +43,7 @@ const gate = createGate({
 });
 
 // Validate an incoming request
-const result = gate.validate(
-  { body: z.object({ name: z.string() }) },
-  { body: { name: "Alice" } }
-);
+const result = gate.validate({ body: z.object({ name: z.string() }) }, { body: { name: "Alice" } });
 
 if (!result.success) {
   return gate.fail("Validation failed", "VALIDATION_ERROR", result.errors);
@@ -164,8 +161,8 @@ import { createGate, InMemoryRateLimitStore } from "@joinremba/gate";
 
 const gate = createGate({
   rateLimit: {
-    windowMs: 60_000,   // 1 minute window
-    max: 100,            // 100 requests per window
+    windowMs: 60_000, // 1 minute window
+    max: 100, // 100 requests per window
     // store: customStore // optional — defaults to InMemoryRateLimitStore
   },
 });
@@ -228,7 +225,7 @@ const gate = createGate({
   idempotency: {
     // store: customStore   — defaults to InMemoryStore
     keyHeader: "Idempotency-Key", // default
-    ttl: 86_400_000,              // 24 hours (default)
+    ttl: 86_400_000, // 24 hours (default)
   },
 });
 
@@ -361,14 +358,10 @@ app.use(
 );
 
 // Standalone idempotency middleware
-app.post(
-  "/api/orders",
-  requireIdempotencyKey({ gate }),
-  async (c) => {
-    // ...
-    return c.json(gate.ok({ orderId: "ord_123" }), 201);
-  }
-);
+app.post("/api/orders", requireIdempotencyKey({ gate }), async (c) => {
+  // ...
+  return c.json(gate.ok({ orderId: "ord_123" }), 201);
+});
 
 // Combined middleware (auth + rate limit + idempotency)
 app.use(
@@ -389,11 +382,11 @@ export default app;
 
 ### Adapter API
 
-| Middleware              | Description                                            |
-| ----------------------- | ------------------------------------------------------ |
+| Middleware              | Description                                             |
+| ----------------------- | ------------------------------------------------------- |
 | `createRateLimiter`     | Rate-limit by a custom key with configurable window/max |
-| `requireIdempotencyKey` | Validates `Idempotency-Key` header, caches responses   |
-| `gateMiddleware`        | All-in-one: auth + rate limit + idempotency            |
+| `requireIdempotencyKey` | Validates `Idempotency-Key` header, caches responses    |
+| `gateMiddleware`        | All-in-one: auth + rate limit + idempotency             |
 
 ---
 
@@ -401,20 +394,20 @@ export default app;
 
 Every module can be imported individually for tree-shaking and direct use:
 
-| Subpath Export                          | Exports                                                         |
-| --------------------------------------- | --------------------------------------------------------------- |
-| `@joinremba/gate`                       | `createGate`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types |
-| `@joinremba/gate/validate`              | `validateRequest`, `validate`, types                            |
-| `@joinremba/gate/respond`               | `ok`, `fail`, `paginated`, `problem`, types                     |
-| `@joinremba/gate/idempotency`           | `idempotency`, `InMemoryStore`, types                            |
-| `@joinremba/gate/rate-limit`            | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types     |
-| `@joinremba/gate/api-keys`              | `createApiKeyValidator`, types                                  |
-| `@joinremba/gate/errors`                | `GateError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError` |
-| `@joinremba/gate/stores/redis`          | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`   |
-| `@joinremba/gate/stores/redis-api-keys` | `RedisApiKeyStore`                                              |
-| `@joinremba/gate/stores/postgres`       | `PostgresIdempotencyStore`, `PostgresRateLimitStore`            |
-| `@joinremba/gate/stores/postgres-api-keys` | `PostgresApiKeyStore`                                       |
-| `@joinremba/gate/adapters/hono`         | `createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`  |
+| Subpath Export                             | Exports                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `@joinremba/gate`                          | `createGate`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types                |
+| `@joinremba/gate/validate`                 | `validateRequest`, `validate`, types                                                        |
+| `@joinremba/gate/respond`                  | `ok`, `fail`, `paginated`, `problem`, types                                                 |
+| `@joinremba/gate/idempotency`              | `idempotency`, `InMemoryStore`, types                                                       |
+| `@joinremba/gate/rate-limit`               | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types                                 |
+| `@joinremba/gate/api-keys`                 | `createApiKeyValidator`, types                                                              |
+| `@joinremba/gate/errors`                   | `GateError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError` |
+| `@joinremba/gate/stores/redis`             | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`                               |
+| `@joinremba/gate/stores/redis-api-keys`    | `RedisApiKeyStore`                                                                          |
+| `@joinremba/gate/stores/postgres`          | `PostgresIdempotencyStore`, `PostgresRateLimitStore`                                        |
+| `@joinremba/gate/stores/postgres-api-keys` | `PostgresApiKeyStore`                                                                       |
+| `@joinremba/gate/adapters/hono`            | `createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`                              |
 
 ---
 
@@ -435,13 +428,13 @@ import {
 } from "@joinremba/gate/errors";
 ```
 
-| Class                 | Code                    | Status | Description                         |
-| --------------------- | ----------------------- | ------ | ----------------------------------- |
-| `GateError`           | (custom)                | 500    | Base error class                    |
-| `ValidationError`     | `VALIDATION_ERROR`      | 400    | Invalid request data                |
-| `AuthenticationError` | `AUTHENTICATION_ERROR`  | 401    | Missing or invalid credentials      |
-| `RateLimitError`      | `RATE_LIMIT_ERROR`      | 429    | Rate limit exceeded                 |
-| `IdempotencyError`    | `IDEMPOTENCY_ERROR`     | 409    | Idempotency key conflict            |
+| Class                 | Code                   | Status | Description                    |
+| --------------------- | ---------------------- | ------ | ------------------------------ |
+| `GateError`           | (custom)               | 500    | Base error class               |
+| `ValidationError`     | `VALIDATION_ERROR`     | 400    | Invalid request data           |
+| `AuthenticationError` | `AUTHENTICATION_ERROR` | 401    | Missing or invalid credentials |
+| `RateLimitError`      | `RATE_LIMIT_ERROR`     | 429    | Rate limit exceeded            |
+| `IdempotencyError`    | `IDEMPOTENCY_ERROR`    | 409    | Idempotency key conflict       |
 
 Check for Gate errors:
 
@@ -461,27 +454,27 @@ try {
 
 ### `createGate(options?)`
 
-| Option                  | Type                          | Default                    | Description                               |
-| ----------------------- | ----------------------------- | -------------------------- | ----------------------------------------- |
-| `apiKeys`               | `ApiKeyEntry[]`               | `[]`                       | Static API keys for in-memory validation  |
-| `rateLimit.windowMs`    | `number`                      | `60_000`                   | Rate limit window in milliseconds         |
-| `rateLimit.max`         | `number`                      | `100`                      | Max requests per window                   |
-| `rateLimit.store`       | `RateLimitStore`              | `InMemoryRateLimitStore`   | Persistent store for rate limit data      |
-| `rateLimit.keyFn`       | `(req: Request) => string`    | IP via `x-forwarded-for`   | Function to derive rate limit key         |
-| `idempotency.store`     | `IdempotencyStore`            | `InMemoryStore`            | Persistent store for idempotency data     |
-| `idempotency.keyHeader` | `string`                      | `Idempotency-Key`          | Header name for idempotency key           |
-| `idempotency.ttl`       | `number`                      | `86_400_000` (24h)         | Time-to-live for cached responses         |
+| Option                  | Type                       | Default                  | Description                              |
+| ----------------------- | -------------------------- | ------------------------ | ---------------------------------------- |
+| `apiKeys`               | `ApiKeyEntry[]`            | `[]`                     | Static API keys for in-memory validation |
+| `rateLimit.windowMs`    | `number`                   | `60_000`                 | Rate limit window in milliseconds        |
+| `rateLimit.max`         | `number`                   | `100`                    | Max requests per window                  |
+| `rateLimit.store`       | `RateLimitStore`           | `InMemoryRateLimitStore` | Persistent store for rate limit data     |
+| `rateLimit.keyFn`       | `(req: Request) => string` | IP via `x-forwarded-for` | Function to derive rate limit key        |
+| `idempotency.store`     | `IdempotencyStore`         | `InMemoryStore`          | Persistent store for idempotency data    |
+| `idempotency.keyHeader` | `string`                   | `Idempotency-Key`        | Header name for idempotency key          |
+| `idempotency.ttl`       | `number`                   | `86_400_000` (24h)       | Time-to-live for cached responses        |
 
 ### `MiddlewareOptions`
 
-| Option           | Type        | Default                          | Description                    |
-| ---------------- | ----------- | -------------------------------- | ------------------------------ |
-| `auth`           | `boolean`   | `true` if `apiKeys` provided     | Enable API key authentication  |
-| `requiredScopes` | `string[]`  | `[]`                             | Require specific scopes        |
-| `rateLimit`      | `boolean`   | `true` if `rateLimit` configured | Enable rate limiting           |
-| `rateLimitMax`   | `number`    | (uses gate default)              | Override max for this path     |
-| `idempotency`    | `boolean`   | `false`                          | Enable idempotency checks      |
-| `excludePaths`   | `string[]`  | `[]`                             | Path prefixes to skip entirely |
+| Option           | Type       | Default                          | Description                    |
+| ---------------- | ---------- | -------------------------------- | ------------------------------ |
+| `auth`           | `boolean`  | `true` if `apiKeys` provided     | Enable API key authentication  |
+| `requiredScopes` | `string[]` | `[]`                             | Require specific scopes        |
+| `rateLimit`      | `boolean`  | `true` if `rateLimit` configured | Enable rate limiting           |
+| `rateLimitMax`   | `number`   | (uses gate default)              | Override max for this path     |
+| `idempotency`    | `boolean`  | `false`                          | Enable idempotency checks      |
+| `excludePaths`   | `string[]` | `[]`                             | Path prefixes to skip entirely |
 
 ---
 

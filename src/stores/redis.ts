@@ -13,7 +13,7 @@ export function fromIORedis(client: {
   return {
     get: (key) => client.get(key),
     set: (key, value, opts) =>
-      opts?.ex ? client.setex(key, opts.ex, value) : client.set(key, value) as Promise<unknown>,
+      opts?.ex ? client.setex(key, opts.ex, value) : (client.set(key, value) as Promise<unknown>),
     setex: (key, seconds, value) => client.setex(key, seconds, value),
     incr: (key) => client.incr(key),
     expire: (key, seconds) => client.expire(key, seconds),

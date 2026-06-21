@@ -63,12 +63,7 @@ export type {
   StructuredResponse,
 } from "./respond";
 export type { IdempotencyStore, IdempotencyOptions, IdempotencyInstance } from "./idempotency";
-export type {
-  RateLimitStore,
-  RateLimitOptions,
-  RateLimitStrategy,
-  RateLimitInstance,
-} from "./rate-limit";
+export type { RateLimitStore, RateLimitOptions, RateLimitInstance } from "./rate-limit";
 export type {
   ApiKeyEntry,
   AuthenticateOptions,
@@ -104,14 +99,6 @@ export interface GateOptions {
   };
 }
 
-export type MiddlewareResult =
-  | {
-      passed: true;
-      auth?: { key: string; scopes?: string[] };
-      rateLimit?: { remaining: number; reset: number };
-    }
-  | { passed: false; status: number; body: unknown };
-
 export interface Gate {
   validate: typeof validateRequest;
   ok: typeof ok;
@@ -122,6 +109,7 @@ export interface Gate {
   rateLimit: ReturnType<typeof rateLimit>;
   apiKeys: ReturnType<typeof createApiKeyValidator>;
   middleware(opts?: MiddlewareOptions): Middleware;
+  dispose(): void;
 }
 
 export function createGate(options: GateOptions = {}): Gate {
@@ -210,6 +198,25 @@ export function createGate(options: GateOptions = {}): Gate {
     idempotency: idempInstance,
     rateLimit: rlInstance,
     apiKeys: apiKeyValidator,
+
+    dispose(): void {
+      const idemStore = idempInstance.store;
+      if (
+        idemStore &&
+        "dispose" in idemStore &&
+        typeof (idemStore as { dispose: () => void }).dispose === "function"
+      ) {
+        (idemStore as { dispose: () => void }).dispose();
+      }
+      const rlStore = rlInstance.store;
+      if (
+        rlStore &&
+        "dispose" in rlStore &&
+        typeof (rlStore as { dispose: () => void }).dispose === "function"
+      ) {
+        (rlStore as { dispose: () => void }).dispose();
+      }
+    },
 
     middleware(opts?: MiddlewareOptions) {
       const {

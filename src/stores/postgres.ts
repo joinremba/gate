@@ -74,6 +74,8 @@ export class PostgresRateLimitStore implements RateLimitStore {
     const now = Date.now();
     const reset = now + windowMs;
 
+    await this.client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
+
     const { rows } = await this.client.query(
       `INSERT INTO ${this.tableName} (key, count, reset_at)
        VALUES ($1, 1, $2)
@@ -89,11 +91,6 @@ export class PostgresRateLimitStore implements RateLimitStore {
        RETURNING count, reset_at`,
       [key, reset, now, reset]
     );
-
-    // Best-effort locking hint to prevent write skew under concurrency.
-    // Not a full serializable isolation — for production, set the table's
-    // fillfactor low or use advisory locks.
-    await this.client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [key]);
 
     const row = rows[0];
     if (!row) return { count: 0, reset: Date.now() + windowMs };

@@ -49,7 +49,7 @@ export class InMemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-export type RateLimitStrategy = "fixed" | "sliding";
+export type RateLimitStrategy = "fixed";
 
 export interface RateLimitOptions {
   windowMs?: number;
@@ -74,9 +74,6 @@ export function rateLimit(options: RateLimitOptions = {}) {
   const max = options.max ?? 100;
   const store = options.store ?? new InMemoryRateLimitStore();
 
-  if (options.strategy === "sliding") {
-    throw new Error("Sliding window rate limiting is not yet implemented. Use 'fixed' (default).");
-  }
   const keyFn =
     options.keyFn ??
     ((req: Request) => {

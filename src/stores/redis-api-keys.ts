@@ -4,6 +4,7 @@ export interface RedisClient {
   get(key: string): Promise<string | null>;
   hget(key: string, field: string): Promise<string | undefined>;
   hgetall(key: string): Promise<Record<string, string> | null>;
+  hset(key: string, data: Record<string, string>): Promise<unknown>;
   set(key: string, value: string, opts?: { ex?: number }): Promise<unknown>;
   del(key: string): Promise<number>;
 }
@@ -60,7 +61,7 @@ export class RedisApiKeyStore {
     const data: Record<string, string> = {};
     if (entry.scopes) data.scopes = JSON.stringify(entry.scopes);
     if (entry.metadata) data.metadata = JSON.stringify(entry.metadata);
-    await this.client.set(`${this.keyPrefix}${keyHash}`, JSON.stringify(data));
+    await this.client.hset(`${this.keyPrefix}${keyHash}`, data);
   }
 
   async deleteKey(key: string): Promise<void> {

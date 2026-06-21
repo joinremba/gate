@@ -97,7 +97,7 @@ export function gateMiddleware(gate: Gate, opts?: MiddlewareOptions) {
       await next();
       return c.res;
     });
-    if (res && res.status !== 200) {
+    if (res && res.status >= 400) {
       const body = await res.json();
       return c.json(body, res.status as 200 | 400 | 401 | 429 | 500);
     }

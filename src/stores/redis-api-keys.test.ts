@@ -2,24 +2,27 @@ import { expect, test } from "bun:test";
 import { RedisApiKeyStore, type RedisClient } from "./redis-api-keys";
 
 function mockRedisClient(): RedisClient {
-  const store = new Map<string, string>();
+  const hashes = new Map<string, Record<string, string>>();
   return {
     async get(key: string) {
-      return store.get(key) ?? null;
+      const h = hashes.get(key);
+      if (!h) return null;
+      return JSON.stringify(h);
     },
     async hget(_key: string, _field: string) {
       return undefined;
     },
     async hgetall(key: string) {
-      const val = store.get(key);
-      if (!val) return null;
-      return JSON.parse(val) as Record<string, string>;
+      return hashes.get(key) ?? null;
+    },
+    async hset(key: string, data: Record<string, string>) {
+      hashes.set(key, { ...hashes.get(key), ...data });
     },
     async set(key: string, value: string) {
-      store.set(key, value);
+      hashes.set(key, JSON.parse(value) as Record<string, string>);
     },
     async del(key: string) {
-      return store.delete(key) ? 1 : 0;
+      return hashes.delete(key) ? 1 : 0;
     },
   };
 }

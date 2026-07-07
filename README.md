@@ -1,4 +1,4 @@
-# @joinremba/gate
+# Gate
 
 [![npm version](https://img.shields.io/npm/v/@joinremba/gate?color=blue&label=npm)](https://www.npmjs.com/package/@joinremba/gate)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)

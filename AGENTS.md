@@ -1,65 +1,32 @@
-# @joinremba/gate
-
-API safety layer for TypeScript backends: validation, responses, idempotency, rate limiting, and API keys.
-
 ## Commands
 
-| Command             | Description                            |
-| ------------------- | -------------------------------------- |
-| `bun test`          | Run tests                              |
-| `bun run typecheck` | `tsc --noEmit`                         |
-| `bun run lint`      | ESLint                                 |
-| `bun run format`    | Prettier                               |
-| `bun run check`     | lint + format:check + typecheck + test |
-| `bun run build`     | Build to `dist/`                       |
+```bash
+bun test                  # Run all tests
+bun run typecheck         # TypeScript check (tsc --noEmit)
+bun run format            # Prettier
+bun run lint              # ESLint
+bun run check             # All checks: lint + format:check + typecheck + test
+bun run build             # Build to dist/
+```
 
-## Stack
+## Architecture
 
-- TypeScript 6 (strict), Bun runtime, Zod ^4.4.2
-- ESLint 8 + Prettier for code quality
-
-## Key API
-
-- `createGate(options?)` — Main export. Returns a Gate instance with all modules.
-- `gate.validate(schemas, request)` — Validate body/query/params/headers with Zod.
-- `gate.ok(data)` / `gate.fail(msg, code?)` — Response helpers.
-- `gate.paginated(data, total, page, limit)` — Paginated responses.
-- `gate.problem(detail)` — RFC 9457 problem details.
-- `gate.idempotency` — Idempotency guard (getResponse/setResponse).
-- `gate.rateLimit` — Rate limiter (check).
-- `gate.apiKeys` — API key validator (validate/authenticate).
-
-## Deep Imports
-
-All modules importable individually:
-
-- `@joinremba/gate/validate`
-- `@joinremba/gate/respond`
-- `@joinremba/gate/idempotency`
-- `@joinremba/gate/rate-limit`
-- `@joinremba/gate/api-keys`
-- `@joinremba/gate/errors`
+- **`@joinremba/gate`** — API safety layer for TypeScript backends: validation, responses, idempotency, rate limiting, API keys.
+- **`src/index.ts`** — `createGate(options?)` → returns `Gate` instance with all modules wired together.
+- **`src/validate.ts`** — Request validation with Zod schemas (`validateRequest`, `validate`).
+- **`src/respond.ts`** — Structured response builders (`ok`, `fail`, `paginated`, `problem` — RFC 9457).
+- **`src/rate-limit.ts`** — Rate limiter (in-memory store, `check()`, `keyByApiKey`).
+- **`src/idempotency.ts`** — Idempotency guard (in-memory store with TTL).
+- **`src/api-keys.ts`** — In-memory API key validator (`createApiKeyValidator`).
+- **`src/errors.ts`** — Typed error hierarchy: `GateError` → `ValidationError | AuthenticationError | RateLimitError | IdempotencyError`.
+- **`src/stores/`** — Persistence stores: Redis (`fromIORedis`), Postgres (auto-migration).
+- **`src/adapters/hono.ts`** — Hono framework adapter (`createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`).
 
 ## Patterns
 
-- All source in `src/`
-- Tests colocated with source: `src/*.test.ts`
-- One sub-module per file, exported via package.json `exports`
-- Zod schemas for all validation
-- Framework-agnostic design (plain functions, not tied to any HTTP lib)
-- In-memory stores for MVP; replaceable via interfaces
-
-## npm Publishing
-
-- `publishConfig.access: public`
-- Published manually via `bun publish` (2FA required)
-- Tag and push after publishing
-
-## Config Reference
-
-| Field        | Value             |
-| ------------ | ----------------- |
-| Package name | `@joinremba/gate` |
-| Licence      | MIT               |
-| Engine       | `bun >=1.3.1`     |
-| Runtime deps | zod               |
+- **Framework-agnostic core** — All modules work with any runtime supporting `Request`.
+- **Pluggable stores** — Rate limit, idempotency, and API key stores follow interfaces; in-memory by default, Redis/Postgres as deep imports.
+- **Cloud-first with local fallback** — When `client` provided, tries remote first, falls back to local on `NetworkError`.
+- **Combined middleware** — `gate.middleware()` runs auth + rate-limit + idempotency in one pass using `WeakMap` stores.
+- **Tree-shakeable** — All modules importable individually via subpath exports.
+- **All source in `src/`**, tests colocated: `src/*.test.ts`.

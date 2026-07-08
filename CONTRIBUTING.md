@@ -110,6 +110,42 @@ When suggesting a feature, please describe:
 
 If you have questions or need help getting started, please open a [discussion](https://github.com/joinremba/gate/discussions) or [issue](https://github.com/joinremba/gate/issues).
 
+## Publishing
+
+This package is published to npm under the `@joinremba` scope.
+
+### Prerequisites
+
+- You need npm publishing rights for the `@joinremba` organisation.
+- You need a valid npm OTP (one-time password) for 2FA.
+
+### Release process
+
+1. Update the version in `package.json` and `CHANGELOG.md` following [Semantic Versioning](https://semver.org/).
+2. Commit and tag the release:
+   ```sh
+   git commit -m "chore: release v<version>"
+   git tag v<version>
+   git push && git push --tags
+   ```
+3. Build and publish with provenance:
+   ```sh
+   bun run build
+   bun publish --provenance
+   ```
+   The `--provenance` flag attaches [npm provenance](https://docs.npmjs.com/generating-provenance-statements) to the published package, linking it to the GitHub Actions workflow that published it. This requires:
+   - The publish to run in GitHub Actions (not locally)
+   - The workflow to have `id-token: write` permission
+   - The repository to be public
+
+### Local publish (no provenance)
+
+If you must publish locally (not recommended):
+
+```sh
+bun publish
+```
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT Licence.

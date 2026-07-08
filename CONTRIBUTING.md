@@ -1,6 +1,6 @@
 # Contributing to permcheck
 
-Thank you for your interest in contributing to Gate! We welcome contributions from everyone, whether it is a bug fix, a new feature, or improved documentation.
+Thank you for your interest in contributing to Permcheck! We welcome contributions from everyone, whether it is a bug fix, a new feature, or improved documentation.
 
 Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating you agree to abide by its terms.
 
@@ -18,7 +18,7 @@ Please note that this project is released with a [Contributor Code of Conduct](C
 
    ```sh
    git clone https://github.com/joinremba/permcheck.git
-   cd gate
+   cd permcheck
    ```
 
 3. Install dependencies:
@@ -83,10 +83,10 @@ type(scope): description
 
 **Examples:**
 
-- `feat(gate): add IP-based rate limiting strategy`
-- `fix(gate): handle malformed idempotency keys gracefully`
+- `feat(permcheck): add IP-based rate limiting strategy`
+- `fix(permcheck): handle malformed idempotency keys gracefully`
 - `docs: update API reference with rate limit examples`
-- `test(gate): add unit tests for API key validation`
+- `test(permcheck): add unit tests for API key validation`
 
 ## Reporting Issues
 

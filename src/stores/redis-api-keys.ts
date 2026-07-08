@@ -12,7 +12,7 @@ export interface RedisClient {
 export class RedisApiKeyStore {
   constructor(
     private client: RedisClient,
-    private keyPrefix = "gate:apikey:"
+    private keyPrefix = "permcheck:apikey:"
   ) {}
 
   async validate(providedKey: string): Promise<AuthenticateResult> {

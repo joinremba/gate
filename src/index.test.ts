@@ -1,13 +1,13 @@
 import { expect, test, describe } from "bun:test";
 import { z } from "zod";
-import { createGate, ok, fail, paginated, problem, validateRequest } from "./index";
+import { createPermcheck, ok, fail, paginated, problem, validateRequest } from "./index";
 
-test("createGate returns a gate instance", () => {
-  const gate = createGate();
-  expect(gate).toBeDefined();
-  expect(typeof gate.validate).toBe("function");
-  expect(typeof gate.ok).toBe("function");
-  expect(typeof gate.fail).toBe("function");
+test("createPermcheck returns a permcheck instance", () => {
+  const permcheck = createPermcheck();
+  expect(permcheck).toBeDefined();
+  expect(typeof permcheck.validate).toBe("function");
+  expect(typeof permcheck.ok).toBe("function");
+  expect(typeof permcheck.fail).toBe("function");
 });
 
 describe("respond", () => {
@@ -67,41 +67,41 @@ describe("validate", () => {
 
 describe("idempotency", () => {
   test("creates idempotency instance", () => {
-    const gate = createGate();
-    expect(gate.idempotency.store).toBeDefined();
-    expect(gate.idempotency.keyHeader).toBe("Idempotency-Key");
+    const permcheck = createPermcheck();
+    expect(permcheck.idempotency.store).toBeDefined();
+    expect(permcheck.idempotency.keyHeader).toBe("Idempotency-Key");
   });
 
   test("stores and retrieves responses", async () => {
-    const gate = createGate({
+    const permcheck = createPermcheck({
       idempotency: { ttl: 60000 },
     });
 
     const response = { status: 201, body: { id: "order-1" } };
-    await gate.idempotency.setResponse("test-key", response);
-    const cached = await gate.idempotency.getResponse("test-key");
+    await permcheck.idempotency.setResponse("test-key", response);
+    const cached = await permcheck.idempotency.getResponse("test-key");
     expect(cached).toEqual(response);
   });
 });
 
 describe("rate limit", () => {
   test("allows requests within limit", async () => {
-    const gate = createGate({
+    const permcheck = createPermcheck({
       rateLimit: { windowMs: 60000, max: 100 },
     });
 
     const req = new Request("http://localhost/test");
-    const result = await gate.rateLimit.check(req);
+    const result = await permcheck.rateLimit.check(req);
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(99);
   });
 
   test("accepts string key directly", async () => {
-    const gate = createGate({
+    const permcheck = createPermcheck({
       rateLimit: { windowMs: 60000, max: 10 },
     });
 
-    const result = await gate.rateLimit.check("custom:user-42");
+    const result = await permcheck.rateLimit.check("custom:user-42");
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(9);
   });
@@ -109,18 +109,18 @@ describe("rate limit", () => {
 
 describe("api keys", () => {
   test("validates correct API key", () => {
-    const gate = createGate({
+    const permcheck = createPermcheck({
       apiKeys: [{ key: "sk-valid", scopes: ["read"] }],
     });
 
-    const result = gate.apiKeys.validate("sk-valid");
+    const result = permcheck.apiKeys.validate("sk-valid");
     expect(result.authenticated).toBe(true);
     expect(result.scopes).toEqual(["read"]);
   });
 
   test("rejects invalid API key", () => {
-    const gate = createGate({ apiKeys: [{ key: "sk-valid" }] });
-    const result = gate.apiKeys.validate("sk-invalid");
+    const permcheck = createPermcheck({ apiKeys: [{ key: "sk-valid" }] });
+    const result = permcheck.apiKeys.validate("sk-invalid");
     expect(result.authenticated).toBe(false);
   });
 });
@@ -145,8 +145,8 @@ describe("keyByApiKey", () => {
 
 describe("middleware", () => {
   test("passes through when no features enabled", async () => {
-    const gate = createGate();
-    const mw = gate.middleware();
+    const permcheck = createPermcheck();
+    const mw = permcheck.middleware();
     const req = new Request("http://localhost/api");
     let called = false;
     const res = await mw(req, async () => {
@@ -158,8 +158,8 @@ describe("middleware", () => {
   });
 
   test("rejects request when auth fails", async () => {
-    const gate = createGate({ apiKeys: [{ key: "sk-valid" }] });
-    const mw = gate.middleware({ auth: true });
+    const permcheck = createPermcheck({ apiKeys: [{ key: "sk-valid" }] });
+    const mw = permcheck.middleware({ auth: true });
     const req = new Request("http://localhost/api", {
       headers: { Authorization: "Bearer sk-wrong" },
     });
@@ -170,16 +170,16 @@ describe("middleware", () => {
   });
 
   test("rejects when rate limit exceeded", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
-    const mw = gate.middleware({ rateLimit: true });
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 0 } });
+    const mw = permcheck.middleware({ rateLimit: true });
     const req = new Request("http://localhost/api");
     const res = await mw(req, async () => new Response("ok"));
     expect(res!.status).toBe(429);
   });
 
   test("skips excluded paths", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
-    const mw = gate.middleware({ rateLimit: true, excludePaths: ["/health"] });
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 0 } });
+    const mw = permcheck.middleware({ rateLimit: true, excludePaths: ["/health"] });
     const req = new Request("http://localhost/health");
     let called = false;
     const res = await mw(req, async () => {

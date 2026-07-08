@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@joinremba/gate",
+      "name": "@joinremba/permcheck",
       "dependencies": {
         "zod": "^4.4.2",
       },

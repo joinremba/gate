@@ -5,8 +5,8 @@ export interface PostgresClient {
   query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-const IDEMPOTENCY_TABLE = "gate_idempotency";
-const RATE_LIMIT_TABLE = "gate_rate_limits";
+const IDEMPOTENCY_TABLE = "permcheck_idempotency";
+const RATE_LIMIT_TABLE = "permcheck_rate_limits";
 
 export class PostgresIdempotencyStore implements IdempotencyStore {
   constructor(

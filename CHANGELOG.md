@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `RedisApiKeyStore.setKey()` now uses `hset` (hash write) to match `validate()` which reads with `hgetall` — was silently broken with any real Redis client
-- `gateMiddleware` (Hono) now treats all success codes (200–399) as success instead of rejecting non-200
+- `permcheckMiddleware` (Hono) now treats all success codes (200–399) as success instead of rejecting non-200
 - `PostgresRateLimitStore.increment()` acquires advisory lock before the upsert instead of after
-- `Gate.dispose()` added to clean up `InMemoryStore` / `InMemoryRateLimitStore` intervals (memory leak)
+- `Permcheck.dispose()` added to clean up `InMemoryStore` / `InMemoryRateLimitStore` intervals (memory leak)
 
 ### Removed
 
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `client?: Client` option to `createGate()` — accepts a remote client for cloud features
+- `client?: Client` option to `createPermcheck()` — accepts a remote client for cloud features
 - Cloud rate limiting: `rateLimit.check()` tries `client.checkRateLimit()` first, falls back to local store on `NetworkError`
 - Cloud idempotency: `idempotency.getResponse()` / `setResponse()` try cloud first, fall back to local store
 - Cloud API key verification: `apiKeys.authenticate()` verifies via `client.verifyApiKey()` with local fallback
@@ -33,8 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Hashed API keys** — `createApiKeyValidator(keys, { hashKeys: true })` stores SHA-256 hashes instead of plaintext. New `verify(token)` method for async hash comparison.
-- **DB-backed API key stores** — `PostgresApiKeyStore` and `RedisApiKeyStore` validate keys against a `gate_api_keys` table / Redis hash. Support `setKey()`, `deleteKey()`, and key expiry.
-- **Combined middleware** — `gate.middleware({ auth, rateLimit, idempotency })` runs all checks in one call. Rejects with proper status codes (401, 429). Supports `excludePaths`.
+- **DB-backed API key stores** — `PostgresApiKeyStore` and `RedisApiKeyStore` validate keys against a `permcheck_api_keys` table / Redis hash. Support `setKey()`, `deleteKey()`, and key expiry.
+- **Combined middleware** — `permcheck.middleware({ auth, rateLimit, idempotency })` runs all checks in one call. Rejects with proper status codes (401, 429). Supports `excludePaths`.
 - **Per-key rate limiting helper** — `keyByApiKey(req)` extracts Bearer token from Authorization header for use as rate limit key.
 - `permcheck/stores/redis-api-keys` and `permcheck/stores/postgres-api-keys` sub-module exports.
 - Redis store for idempotency (`RedisIdempotencyStore`) — implements `IdempotencyStore` via `GET`, `SETEX`, `DEL`

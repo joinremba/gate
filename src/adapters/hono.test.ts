@@ -1,11 +1,11 @@
 import { expect, test, describe } from "bun:test";
 import { Hono } from "hono";
-import { createGate } from "../index";
-import { createRateLimiter, requireIdempotencyKey, gateMiddleware } from "./hono";
+import { createPermcheck } from "../index";
+import { createRateLimiter, requireIdempotencyKey, permcheckMiddleware } from "./hono";
 
 function createApp(
   ...middleware: ReturnType<
-    typeof createRateLimiter | typeof requireIdempotencyKey | typeof gateMiddleware
+    typeof createRateLimiter | typeof requireIdempotencyKey | typeof permcheckMiddleware
   >[]
 ): Hono {
   const app = new Hono();
@@ -17,8 +17,8 @@ function createApp(
 
 describe("createRateLimiter", () => {
   test("allows requests within limit", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 5 } });
-    const app = createApp(createRateLimiter({ gate, keyPrefix: "test" }));
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 5 } });
+    const app = createApp(createRateLimiter({ permcheck, keyPrefix: "test" }));
 
     const res = await app.request("http://localhost/test", { method: "POST" });
     expect(res.status).toBe(201);
@@ -26,8 +26,8 @@ describe("createRateLimiter", () => {
   });
 
   test("blocks requests over limit", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
-    const app = createApp(createRateLimiter({ gate, keyPrefix: "test" }));
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 0 } });
+    const app = createApp(createRateLimiter({ permcheck, keyPrefix: "test" }));
 
     const res = await app.request("http://localhost/test", { method: "POST" });
     expect(res.status).toBe(429);
@@ -36,11 +36,11 @@ describe("createRateLimiter", () => {
   });
 
   test("uses custom getKey function", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 5 } });
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 5 } });
     const app = new Hono();
     app.use(
       createRateLimiter({
-        gate,
+        permcheck,
         keyPrefix: "custom",
         getKey: (c) => c.req.header("x-custom") ?? "unknown",
       })
@@ -55,9 +55,9 @@ describe("createRateLimiter", () => {
   });
 
   test("falls back to clientIp then x-forwarded-for", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 5 } });
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 5 } });
     const app = new Hono();
-    app.use(createRateLimiter({ gate, keyPrefix: "ip" }));
+    app.use(createRateLimiter({ permcheck, keyPrefix: "ip" }));
     app.post("/test", (c) => c.json({ ok: true }, 201));
 
     const res = await app.request("http://localhost/test", {
@@ -70,8 +70,8 @@ describe("createRateLimiter", () => {
 
 describe("requireIdempotencyKey", () => {
   test("rejects missing key header", async () => {
-    const gate = createGate({ idempotency: { ttl: 60000 } });
-    const app = createApp(requireIdempotencyKey({ gate }));
+    const permcheck = createPermcheck({ idempotency: { ttl: 60000 } });
+    const app = createApp(requireIdempotencyKey({ permcheck }));
 
     const res = await app.request("http://localhost/test", { method: "POST" });
     expect(res.status).toBe(400);
@@ -82,8 +82,8 @@ describe("requireIdempotencyKey", () => {
   });
 
   test("rejects invalid key format", async () => {
-    const gate = createGate({ idempotency: { ttl: 60000 } });
-    const app = createApp(requireIdempotencyKey({ gate }));
+    const permcheck = createPermcheck({ idempotency: { ttl: 60000 } });
+    const app = createApp(requireIdempotencyKey({ permcheck }));
 
     const res = await app.request("http://localhost/test", {
       method: "POST",
@@ -93,9 +93,9 @@ describe("requireIdempotencyKey", () => {
   });
 
   test("passes through on GET requests", async () => {
-    const gate = createGate({ idempotency: { ttl: 60000 } });
+    const permcheck = createPermcheck({ idempotency: { ttl: 60000 } });
     const app = new Hono();
-    app.use(requireIdempotencyKey({ gate }));
+    app.use(requireIdempotencyKey({ permcheck }));
     app.get("/safe", (c) => c.json({ ok: true }));
 
     const res = await app.request("http://localhost/safe");
@@ -103,9 +103,12 @@ describe("requireIdempotencyKey", () => {
   });
 
   test("returns cached response on duplicate key", async () => {
-    const gate = createGate({ idempotency: { ttl: 60000 } });
-    await gate.idempotency.setResponse("idemp-dup-key", { success: true, data: { id: "cached" } });
-    const app = createApp(requireIdempotencyKey({ gate }));
+    const permcheck = createPermcheck({ idempotency: { ttl: 60000 } });
+    await permcheck.idempotency.setResponse("idemp-dup-key", {
+      success: true,
+      data: { id: "cached" },
+    });
+    const app = createApp(requireIdempotencyKey({ permcheck }));
 
     const res = await app.request("http://localhost/test", {
       method: "POST",
@@ -117,8 +120,8 @@ describe("requireIdempotencyKey", () => {
   });
 
   test("caches successful response for idempotent re-use", async () => {
-    const gate = createGate({ idempotency: { ttl: 60000 } });
-    const app = createApp(requireIdempotencyKey({ gate }));
+    const permcheck = createPermcheck({ idempotency: { ttl: 60000 } });
+    const app = createApp(requireIdempotencyKey({ permcheck }));
 
     const res1 = await app.request("http://localhost/test", {
       method: "POST",
@@ -126,17 +129,17 @@ describe("requireIdempotencyKey", () => {
     });
     expect(res1.status).toBe(201);
 
-    const cached = await gate.idempotency.getResponse("cache-me");
+    const cached = await permcheck.idempotency.getResponse("cache-me");
     expect(cached).toBeDefined();
     expect((cached as Record<string, unknown>).data).toBeDefined();
   });
 });
 
-describe("gateMiddleware", () => {
+describe("permcheckMiddleware", () => {
   test("passes through when no features configured", async () => {
-    const gate = createGate();
+    const permcheck = createPermcheck();
     const app = new Hono();
-    app.use(gateMiddleware(gate));
+    app.use(permcheckMiddleware(permcheck));
     app.post("/test", (c) => c.json({ ok: true }));
 
     const res = await app.request("http://localhost/test", { method: "POST" });
@@ -144,9 +147,9 @@ describe("gateMiddleware", () => {
   });
 
   test("rejects when auth fails", async () => {
-    const gate = createGate({ apiKeys: [{ key: "sk-valid" }] });
+    const permcheck = createPermcheck({ apiKeys: [{ key: "sk-valid" }] });
     const app = new Hono();
-    app.use(gateMiddleware(gate, { auth: true }));
+    app.use(permcheckMiddleware(permcheck, { auth: true }));
     app.post("/test", (c) => c.json({ ok: true }));
 
     const res = await app.request("http://localhost/test", {
@@ -157,9 +160,9 @@ describe("gateMiddleware", () => {
   });
 
   test("rejects when rate limit exceeded", async () => {
-    const gate = createGate({ rateLimit: { windowMs: 60000, max: 0 } });
+    const permcheck = createPermcheck({ rateLimit: { windowMs: 60000, max: 0 } });
     const app = new Hono();
-    app.use(gateMiddleware(gate, { rateLimit: true }));
+    app.use(permcheckMiddleware(permcheck, { rateLimit: true }));
     app.post("/test", (c) => c.json({ ok: true }));
 
     const res = await app.request("http://localhost/test", { method: "POST" });

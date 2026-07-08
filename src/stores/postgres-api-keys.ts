@@ -4,7 +4,7 @@ export interface PostgresClient {
   query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-const TABLE_NAME = "gate_api_keys";
+const TABLE_NAME = "permcheck_api_keys";
 
 export class PostgresApiKeyStore {
   constructor(

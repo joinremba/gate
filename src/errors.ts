@@ -1,16 +1,16 @@
-export class GateError extends Error {
+export class PermcheckError extends Error {
   readonly code: string;
   readonly status: number;
 
   constructor(message: string, code: string, status = 500) {
     super(message);
-    this.name = "GateError";
+    this.name = "PermcheckError";
     this.code = code;
     this.status = status;
   }
 }
 
-export class ValidationError extends GateError {
+export class ValidationError extends PermcheckError {
   readonly issues: unknown[];
 
   constructor(message: string, issues: unknown[] = []) {
@@ -20,14 +20,14 @@ export class ValidationError extends GateError {
   }
 }
 
-export class AuthenticationError extends GateError {
+export class AuthenticationError extends PermcheckError {
   constructor(message = "Unauthorized") {
     super(message, "AUTHENTICATION_ERROR", 401);
     this.name = "AuthenticationError";
   }
 }
 
-export class RateLimitError extends GateError {
+export class RateLimitError extends PermcheckError {
   readonly retryAfter: number;
 
   constructor(retryAfter = 60) {
@@ -37,13 +37,13 @@ export class RateLimitError extends GateError {
   }
 }
 
-export class IdempotencyError extends GateError {
+export class IdempotencyError extends PermcheckError {
   constructor(message = "Idempotency key conflict") {
     super(message, "IDEMPOTENCY_ERROR", 409);
     this.name = "IdempotencyError";
   }
 }
 
-export function isGateError(err: unknown): err is GateError {
-  return err instanceof GateError;
+export function isPermcheckError(err: unknown): err is PermcheckError {
+  return err instanceof PermcheckError;
 }

@@ -1,16 +1,16 @@
 import { createMiddleware } from "hono/factory";
-import type { Gate, MiddlewareOptions } from "../index";
+import type { Permcheck, MiddlewareOptions } from "../index";
 import type { Context, Next } from "hono";
 
 type HonoRateLimitOptions = {
-  gate: Gate;
+  permcheck: Permcheck;
   keyPrefix: string;
   message?: string;
   getKey?: (c: Context) => string;
 };
 
 export function createRateLimiter({
-  gate,
+  permcheck,
   keyPrefix,
   message = "Too many requests",
   getKey,
@@ -20,7 +20,7 @@ export function createRateLimiter({
       ? getKey(c)
       : ((c.get("clientIp") as string | undefined) ?? c.req.header("x-forwarded-for") ?? "unknown");
 
-    const result = await gate.rateLimit.check(`${keyPrefix}:${identifier}`);
+    const result = await permcheck.rateLimit.check(`${keyPrefix}:${identifier}`);
 
     if (!result.allowed) {
       return c.json({ success: false, error: { message, code: "RATE_LIMIT_EXCEEDED" } }, 429, {
@@ -35,12 +35,12 @@ export function createRateLimiter({
 }
 
 type HonoIdempotencyOptions = {
-  gate: Gate;
+  permcheck: Permcheck;
   keyHeader?: string;
 };
 
 export function requireIdempotencyKey({
-  gate,
+  permcheck,
   keyHeader = "Idempotency-Key",
 }: HonoIdempotencyOptions) {
   const KEY_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
@@ -75,7 +75,7 @@ export function requireIdempotencyKey({
       );
     }
 
-    const cached = await gate.idempotency.getResponse(key);
+    const cached = await permcheck.idempotency.getResponse(key);
     if (cached) {
       return c.json(cached, 200);
     }
@@ -84,13 +84,13 @@ export function requireIdempotencyKey({
 
     if (c.res.status < 500) {
       const body = await c.res.clone().json();
-      gate.idempotency.setResponse(key, body).catch(() => {});
+      permcheck.idempotency.setResponse(key, body).catch(() => {});
     }
   });
 }
 
-export function gateMiddleware(gate: Gate, opts?: MiddlewareOptions) {
-  const mw = gate.middleware(opts);
+export function permcheckMiddleware(permcheck: Permcheck, opts?: MiddlewareOptions) {
+  const mw = permcheck.middleware(opts);
   return createMiddleware(async (c: Context, next: Next) => {
     const req = new Request(c.req.raw);
     const res = await mw(req, async () => {

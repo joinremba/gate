@@ -1,4 +1,4 @@
-# Gate
+# Permcheck
 
 [![npm version](https://img.shields.io/npm/v/permcheck?color=blue&label=npm)](https://www.npmjs.com/package/permcheck)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -15,7 +15,7 @@
 - **Idempotency** — Prevent duplicate processing with idempotency keys (`Idempotency-Key` header)
 - **API keys** — Validate, hash, scope-check, and authenticate API keys from memory, Redis, or Postgres
 - **Framework agnostic** — Core works with any runtime/framework; official Hono adapter included
-- **Middleware** — Drop-in `gate.middleware()` for auth + rate limiting + idempotency in one call
+- **Middleware** — Drop-in `permcheck.middleware()` for auth + rate limiting + idempotency in one call
 - **TypeScript strict** — Full type inference with `strict: true` and Zod 4
 - **Tree-shakeable** — Deep imports for every module; import only what you need
 
@@ -34,22 +34,25 @@ Requires **Bun >= 1.3.1** and **Zod ^4.4.2** (installed automatically).
 ## Quick Start
 
 ```ts
-import { createGate } from "permcheck";
+import { createPermcheck } from "permcheck";
 import { z } from "zod";
 
-const gate = createGate({
+const permcheck = createPermcheck({
   apiKeys: [{ key: "sk-secret-123", scopes: ["read"] }],
   rateLimit: { windowMs: 60_000, max: 10 },
 });
 
 // Validate an incoming request
-const result = gate.validate({ body: z.object({ name: z.string() }) }, { body: { name: "Alice" } });
+const result = permcheck.validate(
+  { body: z.object({ name: z.string() }) },
+  { body: { name: "Alice" } }
+);
 
 if (!result.success) {
-  return gate.fail("Validation failed", "VALIDATION_ERROR", result.errors);
+  return permcheck.fail("Validation failed", "VALIDATION_ERROR", result.errors);
 }
 
-return gate.ok({ name: result.data.body.name });
+return permcheck.ok({ name: result.data.body.name });
 ```
 
 ---
@@ -60,8 +63,8 @@ Validation uses [Zod](https://zod.dev) schemas. The `validate()` method accepts 
 
 ```ts
 import { validateRequest } from "permcheck/validate";
-// or via gate instance:
-// gate.validate(schemas, request)
+// or via permcheck instance:
+// permcheck.validate(schemas, request)
 
 const UserSchema = z.object({
   name: z.string().min(1),
@@ -116,31 +119,31 @@ All response helpers return plain objects — serialise them however you like (J
 ### `ok(data)`
 
 ```ts
-gate.ok({ id: 1, name: "Alice" });
+permcheck.ok({ id: 1, name: "Alice" });
 // → { success: true, data: { id: 1, name: "Alice" } }
 ```
 
 ### `fail(message, code?, details?)`
 
 ```ts
-gate.fail("Not found", "NOT_FOUND");
+permcheck.fail("Not found", "NOT_FOUND");
 // → { success: false, error: { message: "Not found", code: "NOT_FOUND" } }
 
-gate.fail("Validation error", "VALIDATION_ERROR", { name: ["Required"] });
+permcheck.fail("Validation error", "VALIDATION_ERROR", { name: ["Required"] });
 // → { success: false, error: { message: "Validation error", code: "VALIDATION_ERROR", details: { name: ["Required"] } } }
 ```
 
 ### `paginated(data, total, page, limit)`
 
 ```ts
-gate.paginated([{ id: 1 }], 42, 1, 10);
+permcheck.paginated([{ id: 1 }], 42, 1, 10);
 // → { success: true, data: [...], pagination: { total: 42, page: 1, limit: 10, pages: 5 } }
 ```
 
 ### `problem(detail)` — RFC 9457 Problem Details
 
 ```ts
-gate.problem({
+permcheck.problem({
   type: "https://api.example.com/errors/rate-limit",
   title: "Rate Limit Exceeded",
   status: 429,
@@ -157,9 +160,9 @@ gate.problem({
 ### Basic usage
 
 ```ts
-import { createGate, InMemoryRateLimitStore } from "permcheck";
+import { createPermcheck, InMemoryRateLimitStore } from "permcheck";
 
-const gate = createGate({
+const permcheck = createPermcheck({
   rateLimit: {
     windowMs: 60_000, // 1 minute window
     max: 100, // 100 requests per window
@@ -168,18 +171,18 @@ const gate = createGate({
 });
 
 // Usage
-const result = await gate.rateLimit.check(request);
+const result = await permcheck.rateLimit.check(request);
 // → { allowed: boolean, remaining: number, reset: number (epoch ms) }
 
 if (!result.allowed) {
-  return gate.fail("Too many requests", "RATE_LIMIT_EXCEEDED");
+  return permcheck.fail("Too many requests", "RATE_LIMIT_EXCEEDED");
 }
 ```
 
 ### Custom key function
 
 ```ts
-const gate = createGate({
+const permcheck = createPermcheck({
   rateLimit: {
     keyFn: (req) => req.headers.get("x-api-key") ?? "anonymous",
   },
@@ -195,7 +198,7 @@ import { fromIORedis, RedisRateLimitStore } from "permcheck/stores/redis";
 const client = new Redis();
 const redisClient = fromIORedis(client);
 
-const gate = createGate({
+const permcheck = createPermcheck({
   rateLimit: {
     store: new RedisRateLimitStore(redisClient),
     windowMs: 60_000,
@@ -211,7 +214,7 @@ import { PostgresRateLimitStore } from "permcheck/stores/postgres";
 import { sql } from "your-pg-client";
 
 const store = new PostgresRateLimitStore({ query: sql.query.bind(sql) });
-await store.ensureTable(); // creates gate_rate_limits table
+await store.ensureTable(); // creates permcheck_rate_limits table
 ```
 
 ---
@@ -221,7 +224,7 @@ await store.ensureTable(); // creates gate_rate_limits table
 Prevent duplicate processing by storing responses keyed by an `Idempotency-Key` header.
 
 ```ts
-const gate = createGate({
+const permcheck = createPermcheck({
   idempotency: {
     // store: customStore   — defaults to InMemoryStore
     keyHeader: "Idempotency-Key", // default
@@ -230,7 +233,7 @@ const gate = createGate({
 });
 
 // Check for cached response
-const cached = await gate.idempotency.getResponse(key);
+const cached = await permcheck.idempotency.getResponse(key);
 if (cached) {
   return cached; // return previous response
 }
@@ -238,7 +241,7 @@ if (cached) {
 // ... process request ...
 
 // Store the response
-await gate.idempotency.setResponse(key, responseData);
+await permcheck.idempotency.setResponse(key, responseData);
 ```
 
 ### Redis store
@@ -250,7 +253,7 @@ import { fromIORedis, RedisIdempotencyStore } from "permcheck/stores/redis";
 const client = new Redis();
 const redisClient = fromIORedis(client);
 
-const gate = createGate({
+const permcheck = createPermcheck({
   idempotency: {
     store: new RedisIdempotencyStore(redisClient),
   },
@@ -263,7 +266,7 @@ const gate = createGate({
 import { PostgresIdempotencyStore } from "permcheck/stores/postgres";
 
 const store = new PostgresIdempotencyStore({ query: sql.query.bind(sql) });
-await store.ensureTable(); // creates gate_idempotency table
+await store.ensureTable(); // creates permcheck_idempotency table
 ```
 
 ---
@@ -273,7 +276,7 @@ await store.ensureTable(); // creates gate_idempotency table
 ### In-memory validation
 
 ```ts
-const gate = createGate({
+const permcheck = createPermcheck({
   apiKeys: [
     { key: "sk-test-1", scopes: ["read", "write"] },
     { key: "sk-test-2", scopes: ["read"] },
@@ -281,11 +284,11 @@ const gate = createGate({
 });
 
 // Direct validation
-const result = gate.apiKeys.validate("sk-test-1");
+const result = permcheck.apiKeys.validate("sk-test-1");
 // → { authenticated: true, key: "sk-test-1", scopes: ["read", "write"] }
 
 // Authenticate from a Request (extracts Bearer token from Authorization header)
-const authenticate = gate.apiKeys.authenticate({ requiredScopes: ["read"] });
+const authenticate = permcheck.apiKeys.authenticate({ requiredScopes: ["read"] });
 const authResult = await authenticate(request);
 // → { authenticated: true, key: "sk-test-1", scopes: [...], metadata: {...} }
 ```
@@ -316,7 +319,7 @@ const authResult = await authenticate(request);
 import { PostgresApiKeyStore } from "permcheck/stores/postgres-api-keys";
 
 const store = new PostgresApiKeyStore({ query: sql.query.bind(sql) });
-await store.ensureTable(); // creates gate_api_keys table
+await store.ensureTable(); // creates permcheck_api_keys table
 
 await store.setKey({ key: "sk-pg-1", scopes: ["read"] });
 const result = await store.validate("sk-pg-1");
@@ -330,10 +333,14 @@ The `permcheck/adapters/hono` module provides first-class middleware for [Hono](
 
 ```ts
 import { Hono } from "hono";
-import { createGate } from "permcheck";
-import { createRateLimiter, requireIdempotencyKey, gateMiddleware } from "permcheck/adapters/hono";
+import { createPermcheck } from "permcheck";
+import {
+  createRateLimiter,
+  requireIdempotencyKey,
+  permcheckMiddleware,
+} from "permcheck/adapters/hono";
 
-const gate = createGate({
+const permcheck = createPermcheck({
   apiKeys: [{ key: "sk-hono-1", scopes: ["read"] }],
   rateLimit: { windowMs: 60_000, max: 30 },
   idempotency: { ttl: 86_400_000 },
@@ -341,26 +348,26 @@ const gate = createGate({
 
 const app = new Hono();
 
-// Standalone rate limiter middleware (limit/windowMs from gate config)
+// Standalone rate limiter middleware (limit/windowMs from permcheck config)
 app.use(
   "/api/*",
   createRateLimiter({
-    gate,
+    permcheck,
     keyPrefix: "api",
     getKey: (c) => c.req.header("x-forwarded-for") ?? "unknown",
   })
 );
 
 // Standalone idempotency middleware
-app.post("/api/orders", requireIdempotencyKey({ gate }), async (c) => {
+app.post("/api/orders", requireIdempotencyKey({ permcheck }), async (c) => {
   // ...
-  return c.json(gate.ok({ orderId: "ord_123" }), 201);
+  return c.json(permcheck.ok({ orderId: "ord_123" }), 201);
 });
 
 // Combined middleware (auth + rate limit + idempotency)
 app.use(
   "/admin/*",
-  gateMiddleware(gate, {
+  permcheckMiddleware(permcheck, {
     auth: true,
     requiredScopes: ["admin"],
     rateLimit: true,
@@ -368,18 +375,18 @@ app.use(
   })
 );
 
-app.get("/api/health", (c) => c.json(gate.ok({ status: "ok" })));
+app.get("/api/health", (c) => c.json(permcheck.ok({ status: "ok" })));
 
 export default app;
 ```
 
 ### Adapter API
 
-| Middleware              | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `createRateLimiter`     | Rate-limit by a custom key (window/max from gate config) |
-| `requireIdempotencyKey` | Validates `Idempotency-Key` header, caches responses     |
-| `gateMiddleware`        | All-in-one: auth + rate limit + idempotency              |
+| Middleware              | Description                                                   |
+| ----------------------- | ------------------------------------------------------------- |
+| `createRateLimiter`     | Rate-limit by a custom key (window/max from permcheck config) |
+| `requireIdempotencyKey` | Validates `Idempotency-Key` header, caches responses          |
+| `permcheckMiddleware`   | All-in-one: auth + rate limit + idempotency                   |
 
 ---
 
@@ -387,55 +394,55 @@ export default app;
 
 Every module can be imported individually for tree-shaking and direct use:
 
-| Subpath Export                       | Exports                                                                                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `permcheck`                          | `createGate`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types                               |
-| `permcheck/validate`                 | `validateRequest`, `validate`, types                                                                       |
-| `permcheck/respond`                  | `ok`, `fail`, `paginated`, `problem`, types                                                                |
-| `permcheck/idempotency`              | `idempotency`, `InMemoryStore`, types                                                                      |
-| `permcheck/rate-limit`               | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types                                                |
-| `permcheck/api-keys`                 | `createApiKeyValidator`, types                                                                             |
-| `permcheck/errors`                   | `GateError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError`, `isGateError` |
-| `permcheck/stores/redis`             | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`                                              |
-| `permcheck/stores/redis-api-keys`    | `RedisApiKeyStore`                                                                                         |
-| `permcheck/stores/postgres`          | `PostgresIdempotencyStore`, `PostgresRateLimitStore`                                                       |
-| `permcheck/stores/postgres-api-keys` | `PostgresApiKeyStore`                                                                                      |
-| `permcheck/adapters/hono`            | `createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`                                             |
+| Subpath Export                       | Exports                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `permcheck`                          | `createPermcheck`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types                                    |
+| `permcheck/validate`                 | `validateRequest`, `validate`, types                                                                                 |
+| `permcheck/respond`                  | `ok`, `fail`, `paginated`, `problem`, types                                                                          |
+| `permcheck/idempotency`              | `idempotency`, `InMemoryStore`, types                                                                                |
+| `permcheck/rate-limit`               | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types                                                          |
+| `permcheck/api-keys`                 | `createApiKeyValidator`, types                                                                                       |
+| `permcheck/errors`                   | `PermcheckError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError`, `isPermcheckError` |
+| `permcheck/stores/redis`             | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`                                                        |
+| `permcheck/stores/redis-api-keys`    | `RedisApiKeyStore`                                                                                                   |
+| `permcheck/stores/postgres`          | `PostgresIdempotencyStore`, `PostgresRateLimitStore`                                                                 |
+| `permcheck/stores/postgres-api-keys` | `PostgresApiKeyStore`                                                                                                |
+| `permcheck/adapters/hono`            | `createRateLimiter`, `requireIdempotencyKey`, `permcheckMiddleware`                                                  |
 
 ---
 
 ## Error Handling
 
-Gate throws typed errors for programmatic handling, and the `fail()` helper for HTTP responses.
+Permcheck throws typed errors for programmatic handling, and the `fail()` helper for HTTP responses.
 
 ### Error classes
 
 ```ts
 import {
-  GateError,
+  PermcheckError,
   ValidationError,
   AuthenticationError,
   RateLimitError,
   IdempotencyError,
-  isGateError,
+  isPermcheckError,
 } from "permcheck/errors";
 ```
 
 | Class                 | Code                   | Status | Description                    |
 | --------------------- | ---------------------- | ------ | ------------------------------ |
-| `GateError`           | (custom)               | 500    | Base error class               |
+| `PermcheckError`      | (custom)               | 500    | Base error class               |
 | `ValidationError`     | `VALIDATION_ERROR`     | 400    | Invalid request data           |
 | `AuthenticationError` | `AUTHENTICATION_ERROR` | 401    | Missing or invalid credentials |
 | `RateLimitError`      | `RATE_LIMIT_ERROR`     | 429    | Rate limit exceeded            |
 | `IdempotencyError`    | `IDEMPOTENCY_ERROR`    | 409    | Idempotency key conflict       |
 
-Check for Gate errors:
+Check for Permcheck errors:
 
 ```ts
 try {
   // ...
 } catch (err) {
-  if (isGateError(err)) {
+  if (isPermcheckError(err)) {
     console.error(err.code, err.status, err.message);
   }
 }
@@ -445,7 +452,7 @@ try {
 
 ## Configuration Reference
 
-### `createGate(options?)`
+### `createPermcheck(options?)`
 
 | Option                  | Type                       | Default                  | Description                                                                        |
 | ----------------------- | -------------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
@@ -473,7 +480,7 @@ try {
 
 ## TypeScript
 
-Gate is built with TypeScript under `strict: true`. All validation schemas use Zod for full type inference.
+Permcheck is built with TypeScript under `strict: true`. All validation schemas use Zod for full type inference.
 
 ```ts
 import { z } from "zod";
@@ -487,7 +494,7 @@ const schemas: ValidationSchemas = {
 type Body = z.infer<typeof schemas.body>; // { email: string }
 
 // Response types
-const res: SuccessResponse<{ id: string }> = gate.ok({ id: "abc" });
+const res: SuccessResponse<{ id: string }> = permcheck.ok({ id: "abc" });
 // → { success: true, data: { id: "abc" } }
 ```
 

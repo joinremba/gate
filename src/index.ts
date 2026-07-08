@@ -9,28 +9,28 @@ import type { IdempotencyStore } from "./idempotency";
 import type { Client } from "./internal/client";
 import { NetworkError } from "./internal/errors";
 
-const gateAuthStore = new WeakMap<Request, AuthenticateResult>();
-const gateIdempotencyStore = new WeakMap<Request, string>();
-const gateRateLimitStore = new WeakMap<Request, RateLimitCheckResult>();
+const permcheckAuthStore = new WeakMap<Request, AuthenticateResult>();
+const permcheckIdempotencyStore = new WeakMap<Request, string>();
+const permcheckRateLimitStore = new WeakMap<Request, RateLimitCheckResult>();
 
-export function getGateAuth(req: Request): AuthenticateResult | undefined {
-  return gateAuthStore.get(req);
+export function getPermcheckAuth(req: Request): AuthenticateResult | undefined {
+  return permcheckAuthStore.get(req);
 }
 
-export function getGateIdempotencyKey(req: Request): string | undefined {
-  return gateIdempotencyStore.get(req);
+export function getPermcheckIdempotencyKey(req: Request): string | undefined {
+  return permcheckIdempotencyStore.get(req);
 }
 
-export function getGateRateLimit(req: Request): RateLimitCheckResult | undefined {
-  return gateRateLimitStore.get(req);
+export function getPermcheckRateLimit(req: Request): RateLimitCheckResult | undefined {
+  return permcheckRateLimitStore.get(req);
 }
 import {
-  GateError,
+  PermcheckError,
   ValidationError,
   AuthenticationError,
   RateLimitError,
   IdempotencyError,
-  isGateError,
+  isPermcheckError,
 } from "./errors";
 
 export {
@@ -45,12 +45,12 @@ export {
   InMemoryRateLimitStore,
   keyByApiKey,
   createApiKeyValidator,
-  GateError,
+  PermcheckError,
   ValidationError,
   AuthenticationError,
   RateLimitError,
   IdempotencyError,
-  isGateError,
+  isPermcheckError,
 };
 
 export type { ValidationSchemas, ValidationResult, ValidatedRequest } from "./validate";
@@ -83,7 +83,7 @@ export interface MiddlewareOptions {
   excludePaths?: string[];
 }
 
-export interface GateOptions {
+export interface PermcheckOptions {
   apiKeys?: ApiKeyEntry[];
   client?: Client;
   idempotency?: {
@@ -99,7 +99,7 @@ export interface GateOptions {
   };
 }
 
-export interface Gate {
+export interface Permcheck {
   validate: typeof validateRequest;
   ok: typeof ok;
   fail: typeof fail;
@@ -112,7 +112,7 @@ export interface Gate {
   dispose(): void;
 }
 
-export function createGate(options: GateOptions = {}): Gate {
+export function createPermcheck(options: PermcheckOptions = {}): Permcheck {
   const client = options.client;
 
   const idempInstance = idempotency({
@@ -189,7 +189,7 @@ export function createGate(options: GateOptions = {}): Gate {
 
   const defaultFail = (message: string, code?: string) => fail(message, code ?? "UNAUTHORIZED");
 
-  const gate: Gate = {
+  const permcheck: Permcheck = {
     validate: validateRequest,
     ok,
     fail,
@@ -238,7 +238,7 @@ export function createGate(options: GateOptions = {}): Gate {
         // Rate limit check
         if (enableRl) {
           const rlResult = await rlInstance.check(req);
-          gateRateLimitStore.set(req, rlResult);
+          permcheckRateLimitStore.set(req, rlResult);
           if (!rlResult.allowed) {
             const body = defaultFail("Too many requests", "RATE_LIMIT_EXCEEDED");
             return new Response(JSON.stringify(body), {
@@ -263,7 +263,7 @@ export function createGate(options: GateOptions = {}): Gate {
               headers: { "Content-Type": "application/json" },
             });
           }
-          gateAuthStore.set(req, authResult);
+          permcheckAuthStore.set(req, authResult);
         }
 
         // Idempotency check
@@ -277,7 +277,7 @@ export function createGate(options: GateOptions = {}): Gate {
                 headers: { "Content-Type": "application/json" },
               });
             }
-            gateIdempotencyStore.set(req, idemKey);
+            permcheckIdempotencyStore.set(req, idemKey);
           }
         }
 
@@ -286,7 +286,7 @@ export function createGate(options: GateOptions = {}): Gate {
 
         // Store response for idempotency
         if (enableIdem) {
-          const idemKey = gateIdempotencyStore.get(req);
+          const idemKey = permcheckIdempotencyStore.get(req);
           if (idemKey && response.status < 500) {
             const body = await response.clone().json();
             await idempInstance.setResponse(idemKey, body);
@@ -298,7 +298,7 @@ export function createGate(options: GateOptions = {}): Gate {
     },
   };
 
-  return gate;
+  return permcheck;
 }
 
-export default createGate;
+export default createPermcheck;

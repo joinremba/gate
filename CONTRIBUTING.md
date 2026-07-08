@@ -1,4 +1,4 @@
-# Contributing to @joinremba/gate
+# Contributing to permcheck
 
 Thank you for your interest in contributing to Gate! We welcome contributions from everyone, whether it is a bug fix, a new feature, or improved documentation.
 
@@ -17,7 +17,7 @@ Please note that this project is released with a [Contributor Code of Conduct](C
 2. Clone your fork:
 
    ```sh
-   git clone https://github.com/joinremba/gate.git
+   git clone https://github.com/joinremba/permcheck.git
    cd gate
    ```
 
@@ -108,15 +108,15 @@ When suggesting a feature, please describe:
 
 ## Getting Help
 
-If you have questions or need help getting started, please open a [discussion](https://github.com/joinremba/gate/discussions) or [issue](https://github.com/joinremba/gate/issues).
+If you have questions or need help getting started, please open a [discussion](https://github.com/joinremba/permcheck/discussions) or [issue](https://github.com/joinremba/permcheck/issues).
 
 ## Publishing
 
-This package is published to npm under the `@joinremba` scope.
+This package is published to npm as `permcheck`.
 
 ### Prerequisites
 
-- You need npm publishing rights for the `@joinremba` organisation.
+- You need npm publishing rights for the `permcheck` package.
 - You need a valid npm OTP (one-time password) for 2FA.
 
 ### Release process

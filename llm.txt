@@ -1,4 +1,4 @@
-# @joinremba/gate
+# permcheck
 
 API safety layer for TypeScript backends: request validation, structured responses, rate limiting, idempotency, and API keys.
 
@@ -18,17 +18,17 @@ gate.paginated(data, total, page, limit) — paginated response with pages calc
 gate.problem(detail) — RFC 9457 problem details response
 
 ## Sub-modules (deep imports)
-@joinremba/gate/validate — validateRequest, validate
-@joinremba/gate/respond — ok, fail, paginated, problem
-@joinremba/gate/idempotency — idempotency(), InMemoryStore, types
-@joinremba/gate/rate-limit — rateLimit(), InMemoryRateLimitStore, keyByApiKey
-@joinremba/gate/api-keys — createApiKeyValidator (in-memory)
-@joinremba/gate/errors — GateError, ValidationError, AuthenticationError, RateLimitError, IdempotencyError, isGateError
-@joinremba/gate/stores/redis — fromIORedis, RedisIdempotencyStore, RedisRateLimitStore
-@joinremba/gate/stores/redis-api-keys — RedisApiKeyStore
-@joinremba/gate/stores/postgres — PostgresIdempotencyStore, PostgresRateLimitStore
-@joinremba/gate/stores/postgres-api-keys — PostgresApiKeyStore (with ensureTable)
-@joinremba/gate/adapters/hono — createRateLimiter, requireIdempotencyKey, gateMiddleware
+permcheck/validate — validateRequest, validate
+permcheck/respond — ok, fail, paginated, problem
+permcheck/idempotency — idempotency(), InMemoryStore, types
+permcheck/rate-limit — rateLimit(), InMemoryRateLimitStore, keyByApiKey
+permcheck/api-keys — createApiKeyValidator (in-memory)
+permcheck/errors — GateError, ValidationError, AuthenticationError, RateLimitError, IdempotencyError, isGateError
+permcheck/stores/redis — fromIORedis, RedisIdempotencyStore, RedisRateLimitStore
+permcheck/stores/redis-api-keys — RedisApiKeyStore
+permcheck/stores/postgres — PostgresIdempotencyStore, PostgresRateLimitStore
+permcheck/stores/postgres-api-keys — PostgresApiKeyStore (with ensureTable)
+permcheck/adapters/hono — createRateLimiter, requireIdempotencyKey, gateMiddleware
 
 ## Hono Adapter
 createRateLimiter({ gate, keyPrefix, getKey? }) — Rate limit by custom key (window/max from gate config)
@@ -38,5 +38,5 @@ gateMiddleware(gate, { auth?, requiredScopes?, rateLimit?, idempotency?, exclude
 ## Patterns
 Framework-agnostic design — plain functions, not tied to any HTTP library.
 Zod schemas for all validation. In-memory stores default; Redis/Postgres stores available.
-Remote client via @joinremba/core: client option re-routes rate-limit, idempotency, and API key validation with local fallback on NetworkError.
+Remote client via `client` option re-routes rate-limit, idempotency, and API key validation with local fallback on NetworkError.
 All errors extend GateError with code and status properties.

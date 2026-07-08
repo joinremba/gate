@@ -6,8 +6,8 @@ import type { RateLimitStore, RateLimitCheckResult } from "./rate-limit";
 import { createApiKeyValidator } from "./api-keys";
 import type { ApiKeyEntry, AuthenticateResult } from "./api-keys";
 import type { IdempotencyStore } from "./idempotency";
-import type { Client } from "@joinremba/core";
-import { NetworkError } from "@joinremba/core";
+import type { Client } from "./internal/client";
+import { NetworkError } from "./internal/errors";
 
 const gateAuthStore = new WeakMap<Request, AuthenticateResult>();
 const gateIdempotencyStore = new WeakMap<Request, string>();

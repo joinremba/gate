@@ -11,7 +11,7 @@ bun run build             # Build to dist/
 
 ## Architecture
 
-- **`@joinremba/gate`** — API safety layer for TypeScript backends: validation, responses, idempotency, rate limiting, API keys.
+- **`permcheck`** — API safety layer for TypeScript backends: validation, responses, idempotency, rate limiting, API keys.
 - **`src/index.ts`** — `createGate(options?)` → returns `Gate` instance with all modules wired together.
 - **`src/validate.ts`** — Request validation with Zod schemas (`validateRequest`, `validate`).
 - **`src/respond.ts`** — Structured response builders (`ok`, `fail`, `paginated`, `problem` — RFC 9457).

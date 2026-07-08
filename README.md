@@ -1,6 +1,6 @@
 # Gate
 
-[![npm version](https://img.shields.io/npm/v/@joinremba/gate?color=blue&label=npm)](https://www.npmjs.com/package/@joinremba/gate)
+[![npm version](https://img.shields.io/npm/v/permcheck?color=blue&label=npm)](https://www.npmjs.com/package/permcheck)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **API safety layer for TypeScript backends.** Validate requests, format structured responses, prevent duplicate processing, rate-limit endpoints, and manage API keys — all with first-class TypeScript types and Zod schemas.
@@ -24,7 +24,7 @@
 ## Installation
 
 ```sh
-bun add @joinremba/gate
+bun add permcheck
 ```
 
 Requires **Bun >= 1.3.1** and **Zod ^4.4.2** (installed automatically).
@@ -34,7 +34,7 @@ Requires **Bun >= 1.3.1** and **Zod ^4.4.2** (installed automatically).
 ## Quick Start
 
 ```ts
-import { createGate } from "@joinremba/gate";
+import { createGate } from "permcheck";
 import { z } from "zod";
 
 const gate = createGate({
@@ -59,7 +59,7 @@ return gate.ok({ name: result.data.body.name });
 Validation uses [Zod](https://zod.dev) schemas. The `validate()` method accepts an object with optional `body`, `query`, `params`, and `headers` schemas.
 
 ```ts
-import { validateRequest } from "@joinremba/gate/validate";
+import { validateRequest } from "permcheck/validate";
 // or via gate instance:
 // gate.validate(schemas, request)
 
@@ -94,7 +94,7 @@ if (!result.success) {
 The standalone `validate(schemas)` function also accepts a `Request` object directly, parsing the JSON body and URL search params automatically:
 
 ```ts
-import { validate } from "@joinremba/gate/validate";
+import { validate } from "permcheck/validate";
 
 const middleware = async (req: Request) => {
   const result = await validate({
@@ -157,7 +157,7 @@ gate.problem({
 ### Basic usage
 
 ```ts
-import { createGate, InMemoryRateLimitStore } from "@joinremba/gate";
+import { createGate, InMemoryRateLimitStore } from "permcheck";
 
 const gate = createGate({
   rateLimit: {
@@ -190,7 +190,7 @@ const gate = createGate({
 
 ```ts
 import { Redis, type Redis as RedisType } from "ioredis";
-import { fromIORedis, RedisRateLimitStore } from "@joinremba/gate/stores/redis";
+import { fromIORedis, RedisRateLimitStore } from "permcheck/stores/redis";
 
 const client = new Redis();
 const redisClient = fromIORedis(client);
@@ -207,7 +207,7 @@ const gate = createGate({
 ### Postgres store
 
 ```ts
-import { PostgresRateLimitStore } from "@joinremba/gate/stores/postgres";
+import { PostgresRateLimitStore } from "permcheck/stores/postgres";
 import { sql } from "your-pg-client";
 
 const store = new PostgresRateLimitStore({ query: sql.query.bind(sql) });
@@ -245,7 +245,7 @@ await gate.idempotency.setResponse(key, responseData);
 
 ```ts
 import { Redis } from "ioredis";
-import { fromIORedis, RedisIdempotencyStore } from "@joinremba/gate/stores/redis";
+import { fromIORedis, RedisIdempotencyStore } from "permcheck/stores/redis";
 
 const client = new Redis();
 const redisClient = fromIORedis(client);
@@ -260,7 +260,7 @@ const gate = createGate({
 ### Postgres store
 
 ```ts
-import { PostgresIdempotencyStore } from "@joinremba/gate/stores/postgres";
+import { PostgresIdempotencyStore } from "permcheck/stores/postgres";
 
 const store = new PostgresIdempotencyStore({ query: sql.query.bind(sql) });
 await store.ensureTable(); // creates gate_idempotency table
@@ -294,7 +294,7 @@ const authResult = await authenticate(request);
 
 ```ts
 import { Redis } from "ioredis";
-import { RedisApiKeyStore } from "@joinremba/gate/stores/redis-api-keys";
+import { RedisApiKeyStore } from "permcheck/stores/redis-api-keys";
 
 const client = new Redis();
 const store = new RedisApiKeyStore(client);
@@ -313,7 +313,7 @@ const authResult = await authenticate(request);
 ### Postgres store
 
 ```ts
-import { PostgresApiKeyStore } from "@joinremba/gate/stores/postgres-api-keys";
+import { PostgresApiKeyStore } from "permcheck/stores/postgres-api-keys";
 
 const store = new PostgresApiKeyStore({ query: sql.query.bind(sql) });
 await store.ensureTable(); // creates gate_api_keys table
@@ -326,16 +326,12 @@ const result = await store.validate("sk-pg-1");
 
 ## Hono Adapter
 
-The `@joinremba/gate/adapters/hono` module provides first-class middleware for [Hono](https://hono.dev).
+The `permcheck/adapters/hono` module provides first-class middleware for [Hono](https://hono.dev).
 
 ```ts
 import { Hono } from "hono";
-import { createGate } from "@joinremba/gate";
-import {
-  createRateLimiter,
-  requireIdempotencyKey,
-  gateMiddleware,
-} from "@joinremba/gate/adapters/hono";
+import { createGate } from "permcheck";
+import { createRateLimiter, requireIdempotencyKey, gateMiddleware } from "permcheck/adapters/hono";
 
 const gate = createGate({
   apiKeys: [{ key: "sk-hono-1", scopes: ["read"] }],
@@ -391,20 +387,20 @@ export default app;
 
 Every module can be imported individually for tree-shaking and direct use:
 
-| Subpath Export                             | Exports                                                                                                    |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `@joinremba/gate`                          | `createGate`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types                               |
-| `@joinremba/gate/validate`                 | `validateRequest`, `validate`, types                                                                       |
-| `@joinremba/gate/respond`                  | `ok`, `fail`, `paginated`, `problem`, types                                                                |
-| `@joinremba/gate/idempotency`              | `idempotency`, `InMemoryStore`, types                                                                      |
-| `@joinremba/gate/rate-limit`               | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types                                                |
-| `@joinremba/gate/api-keys`                 | `createApiKeyValidator`, types                                                                             |
-| `@joinremba/gate/errors`                   | `GateError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError`, `isGateError` |
-| `@joinremba/gate/stores/redis`             | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`                                              |
-| `@joinremba/gate/stores/redis-api-keys`    | `RedisApiKeyStore`                                                                                         |
-| `@joinremba/gate/stores/postgres`          | `PostgresIdempotencyStore`, `PostgresRateLimitStore`                                                       |
-| `@joinremba/gate/stores/postgres-api-keys` | `PostgresApiKeyStore`                                                                                      |
-| `@joinremba/gate/adapters/hono`            | `createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`                                             |
+| Subpath Export                       | Exports                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `permcheck`                          | `createGate`, `validateRequest`, `ok`, `fail`, `paginated`, `problem`, types                               |
+| `permcheck/validate`                 | `validateRequest`, `validate`, types                                                                       |
+| `permcheck/respond`                  | `ok`, `fail`, `paginated`, `problem`, types                                                                |
+| `permcheck/idempotency`              | `idempotency`, `InMemoryStore`, types                                                                      |
+| `permcheck/rate-limit`               | `rateLimit`, `InMemoryRateLimitStore`, `keyByApiKey`, types                                                |
+| `permcheck/api-keys`                 | `createApiKeyValidator`, types                                                                             |
+| `permcheck/errors`                   | `GateError`, `ValidationError`, `AuthenticationError`, `RateLimitError`, `IdempotencyError`, `isGateError` |
+| `permcheck/stores/redis`             | `fromIORedis`, `RedisIdempotencyStore`, `RedisRateLimitStore`                                              |
+| `permcheck/stores/redis-api-keys`    | `RedisApiKeyStore`                                                                                         |
+| `permcheck/stores/postgres`          | `PostgresIdempotencyStore`, `PostgresRateLimitStore`                                                       |
+| `permcheck/stores/postgres-api-keys` | `PostgresApiKeyStore`                                                                                      |
+| `permcheck/adapters/hono`            | `createRateLimiter`, `requireIdempotencyKey`, `gateMiddleware`                                             |
 
 ---
 
@@ -422,7 +418,7 @@ import {
   RateLimitError,
   IdempotencyError,
   isGateError,
-} from "@joinremba/gate/errors";
+} from "permcheck/errors";
 ```
 
 | Class                 | Code                   | Status | Description                    |
@@ -451,17 +447,17 @@ try {
 
 ### `createGate(options?)`
 
-| Option                  | Type                       | Default                  | Description                                                                                          |
-| ----------------------- | -------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `apiKeys`               | `ApiKeyEntry[]`            | `[]`                     | Static API keys for in-memory validation                                                             |
-| `client`                | `Client`                   | —                        | `@joinremba/core` client for remote rate-limit, idempotency & API key validation with local fallback |
-| `rateLimit.windowMs`    | `number`                   | `60_000`                 | Rate limit window in milliseconds                                                                    |
-| `rateLimit.max`         | `number`                   | `100`                    | Max requests per window                                                                              |
-| `rateLimit.store`       | `RateLimitStore`           | `InMemoryRateLimitStore` | Persistent store for rate limit data                                                                 |
-| `rateLimit.keyFn`       | `(req: Request) => string` | IP via `x-forwarded-for` | Function to derive rate limit key                                                                    |
-| `idempotency.store`     | `IdempotencyStore`         | `InMemoryStore`          | Persistent store for idempotency data                                                                |
-| `idempotency.keyHeader` | `string`                   | `Idempotency-Key`        | Header name for idempotency key                                                                      |
-| `idempotency.ttl`       | `number`                   | `86_400_000` (24h)       | Time-to-live for cached responses                                                                    |
+| Option                  | Type                       | Default                  | Description                                                                        |
+| ----------------------- | -------------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
+| `apiKeys`               | `ApiKeyEntry[]`            | `[]`                     | Static API keys for in-memory validation                                           |
+| `client`                | `Client`                   | —                        | client for remote rate-limit, idempotency & API key validation with local fallback |
+| `rateLimit.windowMs`    | `number`                   | `60_000`                 | Rate limit window in milliseconds                                                  |
+| `rateLimit.max`         | `number`                   | `100`                    | Max requests per window                                                            |
+| `rateLimit.store`       | `RateLimitStore`           | `InMemoryRateLimitStore` | Persistent store for rate limit data                                               |
+| `rateLimit.keyFn`       | `(req: Request) => string` | IP via `x-forwarded-for` | Function to derive rate limit key                                                  |
+| `idempotency.store`     | `IdempotencyStore`         | `InMemoryStore`          | Persistent store for idempotency data                                              |
+| `idempotency.keyHeader` | `string`                   | `Idempotency-Key`        | Header name for idempotency key                                                    |
+| `idempotency.ttl`       | `number`                   | `86_400_000` (24h)       | Time-to-live for cached responses                                                  |
 
 ### `MiddlewareOptions`
 
@@ -481,7 +477,7 @@ Gate is built with TypeScript under `strict: true`. All validation schemas use Z
 
 ```ts
 import { z } from "zod";
-import type { ValidationSchemas, ValidationResult, SuccessResponse } from "@joinremba/gate";
+import type { ValidationSchemas, ValidationResult, SuccessResponse } from "permcheck";
 
 const schemas: ValidationSchemas = {
   body: z.object({ email: z.string().email() }),

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] — 2026-07-09
+
+### Changed
+
+- **Renamed project from Gate to Permcheck** — all types, functions, and exports
+  - `Gate` → `Permcheck`, `GateOptions` → `PermcheckOptions`
+  - `createGate()` → `createPermcheck()`
+  - `HonoRateLimitOptions.gate` → `HonoRateLimitOptions.permcheck`
+  - `HonoIdempotencyOptions.gate` → `HonoIdempotencyOptions.permcheck`
+  - `requireIdempotencyKey()` parameter `gate` → `permcheck`
+  - `createRateLimiter()` parameter `gate` → `permcheck`
+  - `gateMiddleware()` → `permcheckMiddleware()`
+  - `getGateAuth()` → `getPermcheckAuth()`
+  - `getGateIdempotencyKey()` → `getPermcheckIdempotencyKey()`
+  - `getGateRateLimit()` → `getPermcheckRateLimit()`
+  - `GateError` → `PermcheckError`
+  - `isGateError()` → `isPermcheckError()`
+  - All re-exports from sub-modules updated accordingly
+
 ## [0.5.3] — 2026-06-21
 
 ### Fixed
